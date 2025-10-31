@@ -1,0 +1,75 @@
+{
+  "common": {
+    "loading": "لوڈ ہو رہا ہے...",
+    "error": "خرابی",
+    "success": "کامیابی",
+    "cancel": "منسوخ کریں",
+    "confirm": "تصدیق کریں",
+    "save": "محفوظ کریں",
+    "delete": "حذف کریں",
+    "edit": "ترمیم کریں",
+    "search": "تلاش کریں",
+    "filter": "فلٹر"
+  },
+  "auth": {
+    "login": "لاگ ان",
+    "register": "رجسٹر",
+    "logout": "لاگ آؤٹ",
+    "email": "ای میل",
+    "password": "پاس ورڈ",
+    "forgotPassword": "پاس ورڈ بھول گئے؟",
+    "dontHaveAccount": "اکاؤنٹ نہیں ہے؟",
+    "alreadyHaveAccount": "پہلے سے اکاؤنٹ ہے؟",
+    "signUp": "سائن اپ",
+    "signIn": "سائن ان"
+  },
+  "home": {
+    "title": "فوڈی",
+    "searchPlaceholder": "کھانا تلاش کریں...",
+    "categories": "زمرے",
+    "popularRestaurants": "مشہور ریستوران",
+    "nearbyRestaurants": "قریبی ریستوران"
+  },
+  "cart": {
+    "title": "آپ کی ٹوکری",
+    "empty": "آپ کی ٹوکری خالی ہے",
+    "addItems": "ریستوران سے چیزیں شامل کریں",
+    "subtotal": "ذیلی کل",
+    "deliveryFee": "ڈیلیوری فیس",
+    "tax": "ٹیکس",
+    "total": "کل",
+    "checkout": "چیک آؤٹ",
+    "itemAdded": "چیز ٹوکری میں شامل ہو گئی"
+  },
+  "orders": {
+    "title": "میرے آرڈرز",
+    "noOrders": "ابھی تک کوئی آرڈر نہیں",
+    "orderPlaced": "آرڈر دیا گیا",
+    "preparing": "تیار ہو رہا ہے",
+    "outForDelivery": "ڈیلیوری کے لیے نکل گیا",
+    "delivered": "پہنچا دیا",
+    "cancelled": "منسوخ",
+    "trackOrder": "آرڈر ٹریک کریں"
+  },
+  "profile": {
+    "title": "پروفائل",
+    "editProfile": "پروفائل میں ترمیم",
+    "savedAddresses": "محفوظ شدہ پتے",
+    "wallet": "والیٹ",
+    "paymentMethods": "ادائیگی کے طریقے",
+    "notifications": "اطلاعات",
+    "language": "زبان",
+    "darkMode": "ڈارک موڈ",
+    "helpSupport": "مدد اور سپورٹ",
+    "termsConditions": "شرائط و ضوابط",
+    "privacyPolicy": "رازداری کی پالیسی"
+  },
+  "restaurant": {
+    "menu": "مینو",
+    "rating": "درجہ بندی",
+    "reviews": "جائزے",
+    "deliveryTime": "ڈیلیوری کا وقت",
+    "minOrder": "کم سے کم آرڈر",
+    "addToCart": "ٹوکری میں شامل کریں"
+  }
+}

@@ -1,0 +1,75 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "search": "Search",
+    "filter": "Filter"
+  },
+  "auth": {
+    "login": "Login",
+    "register": "Register",
+    "logout": "Logout",
+    "email": "Email",
+    "password": "Password",
+    "forgotPassword": "Forgot Password?",
+    "dontHaveAccount": "Don't have an account?",
+    "alreadyHaveAccount": "Already have an account?",
+    "signUp": "Sign Up",
+    "signIn": "Sign In"
+  },
+  "home": {
+    "title": "Foodie",
+    "searchPlaceholder": "Search for food...",
+    "categories": "Categories",
+    "popularRestaurants": "Popular Restaurants",
+    "nearbyRestaurants": "Nearby Restaurants"
+  },
+  "cart": {
+    "title": "Your Cart",
+    "empty": "Your cart is empty",
+    "addItems": "Add items from restaurants",
+    "subtotal": "Subtotal",
+    "deliveryFee": "Delivery Fee",
+    "tax": "Tax",
+    "total": "Total",
+    "checkout": "Checkout",
+    "itemAdded": "Item added to cart"
+  },
+  "orders": {
+    "title": "My Orders",
+    "noOrders": "No orders yet",
+    "orderPlaced": "Order Placed",
+    "preparing": "Preparing",
+    "outForDelivery": "Out for Delivery",
+    "delivered": "Delivered",
+    "cancelled": "Cancelled",
+    "trackOrder": "Track Order"
+  },
+  "profile": {
+    "title": "Profile",
+    "editProfile": "Edit Profile",
+    "savedAddresses": "Saved Addresses",
+    "wallet": "Wallet",
+    "paymentMethods": "Payment Methods",
+    "notifications": "Notifications",
+    "language": "Language",
+    "darkMode": "Dark Mode",
+    "helpSupport": "Help & Support",
+    "termsConditions": "Terms & Conditions",
+    "privacyPolicy": "Privacy Policy"
+  },
+  "restaurant": {
+    "menu": "Menu",
+    "rating": "Rating",
+    "reviews": "Reviews",
+    "deliveryTime": "Delivery Time",
+    "minOrder": "Min Order",
+    "addToCart": "Add to Cart"
+  }
+}
