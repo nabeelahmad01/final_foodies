@@ -13,7 +13,7 @@ import {
   Switch,
   ActivityIndicator,
 } from 'react-native';
-import { launchImageLibrary } from 'react-native-image-picker';
+import * as ImagePicker from 'expo-image-picker';
 import Icon from 'react-native-vector-icons/Ionicons';
 import api from '../../services/api';
 import colors from '../../styles/colors';
@@ -59,24 +59,33 @@ const MenuManagement = ({ navigation, route }) => {
     }
   };
 
-  const pickImage = () => {
-    const options = {
-      mediaType: 'photo',
-      quality: 0.8,
-      maxWidth: 800,
-      maxHeight: 800,
-    };
+  const pickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission required', 'We need access to your photos');
+      return;
+    }
 
-    launchImageLibrary(options, response => {
-      if (response.didCancel) {
-        console.log('User cancelled image picker');
-      } else if (response.errorCode) {
-        console.log('ImagePicker Error: ', response.errorMessage);
-        Alert.alert('Error', 'Failed to pick image');
-      } else if (response.assets && response.assets[0]) {
-        setFormData({ ...formData, image: response.assets[0] });
-      }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.8,
+      allowsEditing: false,
     });
+
+    if (result.canceled) return;
+
+    const asset = result.assets && result.assets[0];
+    if (asset?.uri) {
+      const name = asset.fileName || asset.uri.split('/').pop() || 'menu_item.jpg';
+      setFormData({
+        ...formData,
+        image: {
+          uri: asset.uri,
+          type: 'image/jpeg',
+          fileName: name,
+        },
+      });
+    }
   };
 
   const uploadImageToCloudinary = async imageUri => {

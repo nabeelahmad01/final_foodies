@@ -14,6 +14,12 @@ import OrderTrackingScreen from '../screens/user/OrderTrackingScreen';
 import KYCUploadScreen from '../screens/auth/KYCUploadScreen';
 import ChatScreen from '../screens/chat/ChatScreen';
 import AddressManagementScreen from '../screens/user/AddressManagementScreen';
+import ProfileScreen from '../screens/user/ProfileScreen';
+import RestaurantDashboard from '../screens/restaurant/RestaurantDashboard';
+import RestaurantMenuManagement from '../screens/restaurant/MenuManagement';
+import RestaurantOrders from '../screens/restaurant/OrdersScreen';
+import RiderDashboard from '../screens/rider/RiderDashboard';
+import RiderDelivery from '../screens/rider/DeliveryScreen';
 
 const Stack = createStackNavigator();
 
@@ -45,6 +51,13 @@ const AppNavigator = () => {
           <Stack.Screen name="OrderTracking" component={OrderTrackingScreen} />
           <Stack.Screen name="KYCUpload" component={KYCUploadScreen} />
           <Stack.Screen name="ChatScreen" component={ChatScreen} />
+          <Stack.Screen name="AddressManagement" component={AddressManagementScreen} />
+          <Stack.Screen name="Profile" component={ProfileScreen} />
+          <Stack.Screen name="RestaurantDashboard" component={RestaurantDashboard} />
+          <Stack.Screen name="MenuManagement" component={RestaurantMenuManagement} />
+          <Stack.Screen name="RestaurantOrders" component={RestaurantOrders} />
+          <Stack.Screen name="RiderDashboard" component={RiderDashboard} />
+          <Stack.Screen name="DeliveryScreen" component={RiderDelivery} />
         </>
       )}
     </Stack.Navigator>
