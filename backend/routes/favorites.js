@@ -1,61 +1,106 @@
 // ============================================
-// 1. FAVORITES FEATURE
+// FAVORITES FEATURE
 // ============================================
 
-// Add to User model (already exists in addresses array)
-// favorites: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Restaurant' }]
+import express from 'express';
+import { protect } from '../middleware/auth.js';
+import User from '../models/User.js';
+import AppError from '../utils/AppError.js';
 
-// Backend Routes
-// backend/routes/favorites.js
-const express = require('express');
 const router = express.Router();
-const { protect } = require('../middleware/auth');
-const User = require('../models/User');
 
-router.get('/', protect, async (req, res) => {
+// @desc    Get user's favorite restaurants
+// @route   GET /api/favorites
+// @access  Private
+router.get('/', protect, async (req, res, next) => {
   try {
-    const user = await User.findById(req.user.id).populate('favorites');
-    res.json({ status: 'success', favorites: user.favorites || [] });
+    const user = await User.findById(req.user.id)
+      .populate('favorites', 'name image rating cuisine deliveryTime')
+      .select('favorites');
+      
+    if (!user) {
+      return next(new AppError('User not found', 404));
+    }
+    
+    res.status(200).json({
+      status: 'success',
+      results: user.favorites.length,
+      data: {
+        favorites: user.favorites || []
+      }
+    });
   } catch (error) {
-    res.status(500).json({ status: 'error', message: 'Failed to fetch favorites' });
+    next(error);
   }
 });
 
-router.post('/:restaurantId', protect, async (req, res) => {
+// @desc    Add restaurant to favorites
+// @route   POST /api/favorites/:restaurantId
+// @access  Private
+router.post('/:restaurantId', protect, async (req, res, next) => {
   try {
     const user = await User.findById(req.user.id);
+    
+    if (!user) {
+      return next(new AppError('User not found', 404));
+    }
     
     if (!user.favorites) user.favorites = [];
     
     if (user.favorites.includes(req.params.restaurantId)) {
-      return res.status(400).json({ message: 'Already in favorites' });
+      return next(new AppError('Restaurant already in favorites', 400));
     }
     
     user.favorites.push(req.params.restaurantId);
     await user.save();
     
-    res.json({ status: 'success', message: 'Added to favorites' });
+    res.status(200).json({
+      status: 'success',
+      message: 'Added to favorites',
+      data: {
+        favorites: user.favorites
+      }
+    });
   } catch (error) {
-    res.status(500).json({ status: 'error', message: 'Failed to add favorite' });
+    next(error);
   }
 });
 
-router.delete('/:restaurantId', protect, async (req, res) => {
+// @desc    Remove restaurant from favorites
+// @route   DELETE /api/favorites/:restaurantId
+// @access  Private
+router.delete('/:restaurantId', protect, async (req, res, next) => {
   try {
     const user = await User.findById(req.user.id);
-    user.favorites = user.favorites.filter(id => id.toString() !== req.params.restaurantId);
+    
+    if (!user) {
+      return next(new AppError('User not found', 404));
+    }
+    
+    if (!user.favorites) user.favorites = [];
+    
+    const index = user.favorites.indexOf(req.params.restaurantId);
+    if (index === -1) {
+      return next(new AppError('Restaurant not in favorites', 400));
+    }
+    
+    user.favorites.splice(index, 1);
     await user.save();
     
-    res.json({ status: 'success', message: 'Removed from favorites' });
+    res.status(200).json({
+      status: 'success',
+      message: 'Removed from favorites',
+      data: {
+        favorites: user.favorites
+      }
+    });
   } catch (error) {
-    res.status(500).json({ status: 'error', message: 'Failed to remove favorite' });
+    next(error);
   }
 });
 
-module.exports = router;
+export default router;
 
 // Add to server.js
-// app.use('/api/favorites', require('./routes/favorites'));
-
-
-
+// import favoritesRouter from './routes/favorites';
+// app.use('/api/favorites', favoritesRouter);

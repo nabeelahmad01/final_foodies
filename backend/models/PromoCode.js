@@ -1,5 +1,5 @@
 // backend/models/PromoCode.js
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const promoCodeSchema = new mongoose.Schema(
   {
@@ -89,10 +89,15 @@ const promoCodeSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-  },
+  }
 );
 
-// Check if promo code is valid
+/**
+ * Check if promo code is valid
+ * @param {String} userId - User ID to check against
+ * @param {Number} orderAmount - Order amount to validate against min order
+ * @returns {Object} Validity status and message
+ */
 promoCodeSchema.methods.isValid = function (userId, orderAmount) {
   const now = new Date();
 
@@ -101,7 +106,7 @@ promoCodeSchema.methods.isValid = function (userId, orderAmount) {
   }
 
   if (now < this.validFrom) {
-    return { valid: false, message: 'Promo code not yet valid' };
+    return { valid: false, message: 'Promo code is not yet active' };
   }
 
   if (now > this.validUntil) {
@@ -115,55 +120,86 @@ promoCodeSchema.methods.isValid = function (userId, orderAmount) {
   if (orderAmount < this.minOrderAmount) {
     return {
       valid: false,
-      message: `Minimum order amount is Rs. ${this.minOrderAmount}`,
+      message: `Minimum order amount of $${this.minOrderAmount} required`,
     };
   }
 
-  const userUsage = this.usedBy.find(
-    u => u.userId.toString() === userId.toString(),
-  );
-  if (userUsage && userUsage.count >= this.userUsageLimit) {
-    return { valid: false, message: 'You have already used this promo code' };
+  // Check user-specific restrictions
+  if (this.applicableFor === 'new_users') {
+    const user = this.usedBy.find((u) => u.userId.toString() === userId);
+    if (user && user.count > 0) {
+      return { valid: false, message: 'This promo code is for new users only' };
+    }
+  } else if (this.applicableFor === 'specific_users') {
+    if (!this.specificUsers.some((id) => id.toString() === userId)) {
+      return { valid: false, message: 'This promo code is not applicable to your account' };
+    }
   }
 
-  return { valid: true };
+  // Check per-user usage limit
+  const userUsage = this.usedBy.find((u) => u.userId.toString() === userId);
+  if (userUsage && userUsage.count >= this.userUsageLimit) {
+    return {
+      valid: false,
+      message: `You have already used this promo code ${this.userUsageLimit} time(s)`,
+    };
+  }
+
+  return { valid: true, message: 'Promo code is valid' };
 };
 
-// Calculate discount
+/**
+ * Calculate discount amount
+ * @param {Number} orderAmount - Order amount to calculate discount for
+ * @returns {Object} Discount details
+ */
 promoCodeSchema.methods.calculateDiscount = function (orderAmount) {
-  let discount = 0;
+  let discountAmount = 0;
 
   if (this.discountType === 'percentage') {
-    discount = (orderAmount * this.discountValue) / 100;
+    discountAmount = (orderAmount * this.discountValue) / 100;
     if (this.maxDiscount) {
-      discount = Math.min(discount, this.maxDiscount);
+      discountAmount = Math.min(discountAmount, this.maxDiscount);
     }
   } else {
-    discount = this.discountValue;
+    // Fixed amount
+    discountAmount = Math.min(this.discountValue, orderAmount);
   }
 
-  return Math.round(discount);
+  return {
+    discountAmount,
+    finalAmount: orderAmount - discountAmount,
+  };
 };
 
-// Mark as used
+/**
+ * Mark promo code as used
+ * @param {String} userId - User ID who used the promo code
+ * @returns {Promise<Boolean>} Success status
+ */
 promoCodeSchema.methods.markAsUsed = async function (userId) {
-  const userUsage = this.usedBy.find(
-    u => u.userId.toString() === userId.toString(),
-  );
+  try {
+    const userIndex = this.usedBy.findIndex((u) => u.userId.toString() === userId);
 
-  if (userUsage) {
-    userUsage.count += 1;
-    userUsage.lastUsed = new Date();
-  } else {
-    this.usedBy.push({
-      userId,
-      count: 1,
-      lastUsed: new Date(),
-    });
+    if (userIndex === -1) {
+      this.usedBy.push({
+        userId,
+        count: 1,
+        lastUsed: new Date(),
+      });
+    } else {
+      this.usedBy[userIndex].count += 1;
+      this.usedBy[userIndex].lastUsed = new Date();
+    }
+
+    this.usageCount += 1;
+    await this.save();
+    return true;
+  } catch (error) {
+    console.error('Error marking promo code as used:', error);
+    return false;
   }
-
-  this.usageCount += 1;
-  await this.save();
 };
 
-module.exports = mongoose.model('PromoCode', promoCodeSchema);
+const PromoCode = mongoose.model('PromoCode', promoCodeSchema);
+export default PromoCode;

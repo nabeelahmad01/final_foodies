@@ -1,10 +1,11 @@
 // backend/routes/auth.js
-const express = require('express');
+import express from 'express';
+import { body } from 'express-validator';
+import * as authController from '../controllers/authController.js';
+import { protect } from '../middleware/auth.js';
+import upload from '../middleware/upload.js';
+
 const router = express.Router();
-const { body } = require('express-validator');
-const authController = require('../controllers/authController');
-const { protect } = require('../middleware/auth');
-const upload = require('../middleware/upload');
 
 // Register
 router.post(
@@ -17,7 +18,7 @@ router.post(
       .isLength({ min: 6 })
       .withMessage('Password must be at least 6 characters'),
     body('role')
-      .isIn(['customer', 'restaurant', 'rider'])
+      .isIn(['user', 'customer', 'restaurant', 'rider'])
       .withMessage('Invalid role'),
   ],
   authController.register,
@@ -43,7 +44,17 @@ router.put('/update-profile', protect, authController.updateProfile);
 router.post(
   '/upload-kyc',
   protect,
-  upload.array('documents', 5),
+  (req, res, next) => {
+    upload.single('document')(req, res, function (err) {
+      if (err) {
+        return res.status(400).json({
+          status: 'error',
+          message: err.message || 'Error uploading file',
+        });
+      }
+      next();
+    });
+  },
   authController.uploadKYC,
 );
 
@@ -72,4 +83,4 @@ router.put(
   authController.resetPassword,
 );
 
-module.exports = router;
+export default router;

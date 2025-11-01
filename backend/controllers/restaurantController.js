@@ -1,12 +1,12 @@
 // backend/controllers/restaurantController.js (COMPLETE VERSION)
-const Restaurant = require('../models/Restaurant');
-const MenuItem = require('../models/MenuItem');
-const Order = require('../models/Order');
+import Restaurant from '../models/Restaurant.js';
+import MenuItem from '../models/MenuItem.js';
+import Order from '../models/Order.js';
 
 // @desc    Get all restaurants
 // @route   GET /api/restaurants
 // @access  Public
-exports.getRestaurants = async (req, res) => {
+export const getRestaurants = async (req, res) => {
   try {
     const { cuisineType, minRating, lat, lng, maxDistance } = req.query;
     
@@ -61,7 +61,7 @@ exports.getRestaurants = async (req, res) => {
 };
 
 // Calculate distance between two points (Haversine formula)
-function calculateDistance(lat1, lon1, lat2, lon2) {
+const calculateDistance = (lat1, lon1, lat2, lon2) => {
   const R = 6371; // Earth's radius in km
   const dLat = toRad(lat2 - lat1);
   const dLon = toRad(lon2 - lon1);
@@ -73,14 +73,14 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
   return R * c;
 }
 
-function toRad(deg) {
+const toRad = (deg) => {
   return deg * (Math.PI / 180);
 }
 
 // @desc    Search restaurants
 // @route   GET /api/restaurants/search
 // @access  Public
-exports.searchRestaurants = async (req, res) => {
+export const searchRestaurants = async (req, res) => {
   try {
     const { q } = req.query;
 
@@ -138,7 +138,7 @@ exports.searchRestaurants = async (req, res) => {
 // @desc    Get restaurant by ID
 // @route   GET /api/restaurants/:id
 // @access  Public
-exports.getRestaurantById = async (req, res) => {
+export const getRestaurantById = async (req, res) => {
   try {
     const restaurant = await Restaurant.findById(req.params.id).populate(
       'ownerId',
@@ -176,7 +176,7 @@ exports.getRestaurantById = async (req, res) => {
 // @desc    Get restaurant menu
 // @route   GET /api/restaurants/:id/menu
 // @access  Public
-exports.getRestaurantMenu = async (req, res) => {
+export const getRestaurantMenu = async (req, res) => {
   try {
     const { category } = req.query;
     
@@ -208,7 +208,7 @@ exports.getRestaurantMenu = async (req, res) => {
 // @desc    Create restaurant
 // @route   POST /api/restaurants
 // @access  Private (Restaurant owner)
-exports.createRestaurant = async (req, res) => {
+export const createRestaurant = async (req, res) => {
   try {
     const existingRestaurant = await Restaurant.findOne({ ownerId: req.user.id });
     
@@ -242,7 +242,7 @@ exports.createRestaurant = async (req, res) => {
 // @desc    Update restaurant
 // @route   PUT /api/restaurants/:id
 // @access  Private (Restaurant owner)
-exports.updateRestaurant = async (req, res) => {
+export const updateRestaurant = async (req, res) => {
   try {
     let restaurant = await Restaurant.findById(req.params.id);
 
@@ -285,7 +285,7 @@ exports.updateRestaurant = async (req, res) => {
 // @desc    Delete restaurant
 // @route   DELETE /api/restaurants/:id
 // @access  Private (Restaurant owner)
-exports.deleteRestaurant = async (req, res) => {
+export const deleteRestaurant = async (req, res) => {
   try {
     const restaurant = await Restaurant.findById(req.params.id);
 
@@ -324,7 +324,7 @@ exports.deleteRestaurant = async (req, res) => {
 // @desc    Add menu item
 // @route   POST /api/restaurants/:id/menu
 // @access  Private (Restaurant owner)
-exports.addMenuItem = async (req, res) => {
+export const addMenuItem = async (req, res) => {
   try {
     const restaurant = await Restaurant.findById(req.params.id);
 
@@ -363,7 +363,7 @@ exports.addMenuItem = async (req, res) => {
 // @desc    Update menu item
 // @route   PUT /api/restaurants/:id/menu/:itemId
 // @access  Private (Restaurant owner)
-exports.updateMenuItem = async (req, res) => {
+export const updateMenuItem = async (req, res) => {
   try {
     const menuItem = await MenuItem.findById(req.params.itemId);
 
@@ -405,7 +405,7 @@ exports.updateMenuItem = async (req, res) => {
 // @desc    Delete menu item
 // @route   DELETE /api/restaurants/:id/menu/:itemId
 // @access  Private (Restaurant owner)
-exports.deleteMenuItem = async (req, res) => {
+export const deleteMenuItem = async (req, res) => {
   try {
     const menuItem = await MenuItem.findById(req.params.itemId);
 
@@ -443,7 +443,7 @@ exports.deleteMenuItem = async (req, res) => {
 // @desc    Get restaurant dashboard stats
 // @route   GET /api/restaurants/:id/dashboard
 // @access  Private (Restaurant owner)
-exports.getDashboard = async (req, res) => {
+export const getDashboard = async (req, res) => {
   try {
     const restaurant = await Restaurant.findById(req.params.id);
 
@@ -517,7 +517,7 @@ exports.getDashboard = async (req, res) => {
 // @desc    Get restaurant orders
 // @route   GET /api/restaurants/:id/orders
 // @access  Private (Restaurant owner)
-exports.getRestaurantOrders = async (req, res) => {
+export const getRestaurantOrders = async (req, res) => {
   try {
     const restaurant = await Restaurant.findById(req.params.id);
 

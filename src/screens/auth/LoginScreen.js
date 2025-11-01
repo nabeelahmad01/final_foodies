@@ -1,5 +1,5 @@
 // src/screens/auth/LoginScreen.js
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   TextInput,
   TouchableOpacity,
   KeyboardAvoidingView,
+  ScrollView,
   Platform,
   ActivityIndicator,
   Alert,
@@ -18,7 +19,22 @@ import colors from '../../styles/colors';
 
 const LoginScreen = ({ navigation }) => {
   const dispatch = useDispatch();
-  const { isLoading } = useSelector(state => state.auth);
+  const { isLoading, isAuthenticated, user } = useSelector(state => state.auth);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      const targetRoute = user?.role === 'rider'
+        ? 'RiderDashboard'
+        : user?.role === 'restaurant'
+          ? 'RestaurantDashboard'
+          : 'MainTabs';
+
+      navigation.reset({
+        index: 0,
+        routes: [{ name: targetRoute }],
+      });
+    }
+  }, [isAuthenticated, navigation, user?.role]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -30,28 +46,44 @@ const LoginScreen = ({ navigation }) => {
     }
 
     try {
-      await dispatch(login({ email, password })).unwrap();
-      // Navigation handled by AppNavigator
+      console.log('Attempting to login with:', { email });
+      const user = await dispatch(login({ email, password })).unwrap();
+      
+      if (user) {
+        console.log('Login successful, user:', user);
+        // Track successful login
+        try {
+          if (typeof Analytics !== 'undefined' && Analytics) {
+            Analytics.logLogin?.('email');
+            if (user._id) {
+              Analytics.setUserId?.(user._id.toString());
+            }
+            Analytics.setUserProperties?.({
+              user_role: user.role || 'customer',
+              kyc_status: user.kycStatus || 'not_submitted',
+            });
+          }
+        } catch (analyticsError) {
+          console.warn('Analytics error:', analyticsError);
+        }
+      }
     } catch (error) {
-      Alert.alert('Login Failed', error);
+      Alert.alert('Login Failed', error.message || 'An error occurred during login');
     }
-    await dispatch(login({ email, password })).unwrap();
-
-    // Track login
-    Analytics.logLogin('email');
-    Analytics.setUserId(user._id);
-    Analytics.setUserProperties({
-      user_role: user.role,
-      kyc_status: user.kycStatus,
-    });
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <View style={styles.content}>
+    <View style={styles.container}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardAvoidingView}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 0}
+      >
+        <ScrollView 
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
         {/* Logo Section */}
         <View style={styles.logoContainer}>
           <View style={styles.logo}>
@@ -148,8 +180,9 @@ const LoginScreen = ({ navigation }) => {
             </TouchableOpacity>
           </View>
         </View>
-      </View>
-    </KeyboardAvoidingView>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </View>
   );
 };
 
@@ -158,14 +191,18 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.white,
   },
-  content: {
+  keyboardAvoidingView: {
     flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    padding: 20,
     paddingHorizontal: 24,
   },
   logoContainer: {
     alignItems: 'center',
-    marginTop: 60,
-    marginBottom: 40,
+    marginTop: 40,
+    marginBottom: 30,
   },
   logo: {
     width: 100,
@@ -190,7 +227,7 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
   },
   formContainer: {
-    flex: 1,
+    marginBottom: 30,
   },
   title: {
     fontSize: 28,

@@ -1,169 +1,150 @@
 // ============================================
-// 2. Backend - Chat Routes
+// Backend - Chat Routes
 // backend/routes/chat.js
 // ============================================
 
-const express = require('express');
+import express from 'express';
+import { protect } from '../middleware/auth.js';
+import Message from '../models/Message.js';
+import Order from '../models/Order.js';
+import AppError from '../utils/AppError.js';
+
 const router = express.Router();
-const { protect } = require('../middleware/auth');
-const Message = require('../models/Message');
-const Order = require('../models/Order');
 
 // @desc    Get chat messages for an order
 // @route   GET /api/chat/:orderId
 // @access  Private
-router.get('/:orderId', protect, async (req, res) => {
+router.get('/:orderId', protect, async (req, res, next) => {
   try {
     const order = await Order.findById(req.params.orderId);
 
     if (!order) {
-      return res.status(404).json({
-        status: 'error',
-        message: 'Order not found',
-      });
+      return next(new AppError('Order not found', 404));
     }
 
-    // Check if user is part of this order
-    const isParticipant =
-      order.userId.toString() === req.user.id ||
-      order.riderId?.toString() === req.user.id;
-
-    if (!isParticipant) {
-      return res.status(403).json({
-        status: 'error',
-        message: 'Not authorized to view this chat',
-      });
+    // Check if the user is part of this order
+    if (
+      order.user.toString() !== req.user.id &&
+      (!order.restaurant || order.restaurant.owner.toString() !== req.user.id)
+    ) {
+      return next(
+        new AppError('Not authorized to view these messages', 403)
+      );
     }
 
-    const messages = await Message.find({ orderId: req.params.orderId })
-      .populate('senderId', 'name')
-      .populate('receiverId', 'name')
-      .sort({ createdAt: 1 });
+    const messages = await Message.find({ order: order._id })
+      .sort('createdAt')
+      .populate('sender', 'name profileImage');
 
-    res.json({
+    res.status(200).json({
       status: 'success',
-      messages,
+      data: {
+        messages,
+      },
     });
   } catch (error) {
-    console.error('Get messages error:', error);
-    res.status(500).json({
-      status: 'error',
-      message: 'Failed to fetch messages',
-    });
+    next(error);
   }
 });
 
 // @desc    Send a message
 // @route   POST /api/chat/:orderId
 // @access  Private
-router.post('/:orderId', protect, async (req, res) => {
+router.post('/:orderId', protect, async (req, res, next) => {
   try {
-    const { message, type = 'text', imageUrl, location } = req.body;
+    const { content } = req.body;
+
+    if (!content || content.trim() === '') {
+      return next(new AppError('Message content is required', 400));
+    }
 
     const order = await Order.findById(req.params.orderId);
 
     if (!order) {
-      return res.status(404).json({
-        status: 'error',
-        message: 'Order not found',
-      });
+      return next(new AppError('Order not found', 404));
     }
 
-    // Determine receiver
-    let receiverId;
-    if (req.user.id === order.userId.toString()) {
-      receiverId = order.riderId;
-    } else if (req.user.id === order.riderId?.toString()) {
-      receiverId = order.userId;
-    } else {
-      return res.status(403).json({
-        status: 'error',
-        message: 'Not authorized',
-      });
+    // Check if the user is part of this order
+    if (
+      order.user.toString() !== req.user.id &&
+      (!order.restaurant || order.restaurant.owner.toString() !== req.user.id)
+    ) {
+      return next(
+        new AppError('Not authorized to send messages for this order', 403)
+      );
     }
 
-    const newMessage = await Message.create({
-      orderId: req.params.orderId,
-      senderId: req.user.id,
-      receiverId,
-      message,
-      type,
-      imageUrl,
-      location,
+    const message = await Message.create({
+      content,
+      sender: req.user.id,
+      order: order._id,
     });
 
-    await newMessage.populate('senderId', 'name');
-    await newMessage.populate('receiverId', 'name');
+    // Populate sender info
+    await message.populate('sender', 'name profileImage');
 
-    // Emit socket event
-    const io = req.app.get('io');
-    io.to(`order_${req.params.orderId}`).emit('newMessage', newMessage);
+    // Emit message to the room
+    req.app.get('io').to(`order_${order._id}`).emit('message', message);
 
     res.status(201).json({
       status: 'success',
-      message: newMessage,
+      data: {
+        message,
+      },
     });
   } catch (error) {
-    console.error('Send message error:', error);
-    res.status(500).json({
-      status: 'error',
-      message: 'Failed to send message',
-    });
+    next(error);
   }
 });
 
-// @desc    Mark messages as read
-// @route   PUT /api/chat/:orderId/read
+// @desc    Get all conversations for the current user
+// @route   GET /api/chat/conversations
 // @access  Private
-router.put('/:orderId/read', protect, async (req, res) => {
+router.get('/conversations', protect, async (req, res, next) => {
   try {
-    await Message.updateMany(
-      {
-        orderId: req.params.orderId,
-        receiverId: req.user.id,
-        isRead: false,
-      },
-      {
-        isRead: true,
-        readAt: new Date(),
-      },
+    // For customers: Get all orders where they are the customer
+    // For restaurant owners: Get all orders for their restaurant
+    let orders;
+    if (req.user.role === 'customer') {
+      orders = await Order.find({ user: req.user.id }).select('_id status');
+    } else if (req.user.role === 'restaurant') {
+      orders = await Order.find({ 'restaurant.owner': req.user.id }).select(
+        '_id status'
+      );
+    } else {
+      return next(new AppError('Not authorized', 403));
+    }
+
+    // Get the latest message for each order
+    const conversations = await Promise.all(
+      orders.map(async (order) => {
+        const lastMessage = await Message.findOne({ order: order._id })
+          .sort('-createdAt')
+          .populate('sender', 'name profileImage');
+
+        return {
+          orderId: order._id,
+          status: order.status,
+          lastMessage: lastMessage || null,
+          unreadCount: await Message.countDocuments({
+            order: order._id,
+            read: false,
+            sender: { $ne: req.user.id },
+          }),
+        };
+      })
     );
 
-    res.json({
+    res.status(200).json({
       status: 'success',
-      message: 'Messages marked as read',
+      results: conversations.length,
+      data: {
+        conversations,
+      },
     });
   } catch (error) {
-    console.error('Mark read error:', error);
-    res.status(500).json({
-      status: 'error',
-      message: 'Failed to mark messages as read',
-    });
+    next(error);
   }
 });
 
-// @desc    Get unread message count
-// @route   GET /api/chat/:orderId/unread
-// @access  Private
-router.get('/:orderId/unread', protect, async (req, res) => {
-  try {
-    const count = await Message.countDocuments({
-      orderId: req.params.orderId,
-      receiverId: req.user.id,
-      isRead: false,
-    });
-
-    res.json({
-      status: 'success',
-      unreadCount: count,
-    });
-  } catch (error) {
-    console.error('Get unread count error:', error);
-    res.status(500).json({
-      status: 'error',
-      message: 'Failed to get unread count',
-    });
-  }
-});
-
-module.exports = router;
+export default router;

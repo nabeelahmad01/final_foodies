@@ -9,9 +9,19 @@ import {
   Linking,
   ActivityIndicator,
   ScrollView,
+  Platform,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
+
+// Conditional imports for react-native-maps
+let MapView, Marker, Polyline, PROVIDER_GOOGLE;
+if (Platform.OS !== 'web') {
+  const maps = require('react-native-maps');
+  MapView = maps.default;
+  Marker = maps.Marker;
+  Polyline = maps.Polyline;
+  PROVIDER_GOOGLE = maps.PROVIDER_GOOGLE;
+}
 import api from '../../services/api';
 import colors from '../../styles/colors';
 import { ORDER_STATUS } from '../../utils/constants';
@@ -165,51 +175,65 @@ const DeliveryScreen = ({ route, navigation }) => {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
+      {/* Custom Header */}
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.headerBackButton}
           onPress={() => navigation.goBack()}
+          hitSlop={{top: 15, bottom: 15, left: 15, right: 15}}
         >
           <Icon name="arrow-back" size={24} color={colors.white} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Delivery #{order._id.slice(-6)}</Text>
-        <View style={styles.placeholder} />
+        <Text style={styles.headerTitle} numberOfLines={1} ellipsizeMode="tail">
+          Delivery #{order?._id?.slice(-6) || ''}
+        </Text>
+        <View style={styles.headerRight} />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+      >
         {/* Map */}
         <View style={styles.mapContainer}>
-          <MapView
-            provider={PROVIDER_GOOGLE}
-            style={styles.map}
-            initialRegion={{
-              latitude: 31.4952,
-              longitude: 74.3157,
-              latitudeDelta: 0.1,
-              longitudeDelta: 0.1,
-            }}
-          >
-            <Marker
-              coordinate={restaurantLocation}
-              title="Restaurant"
-              pinColor={colors.primary}
+          {MapView ? (
+            <MapView
+              provider={PROVIDER_GOOGLE}
+              style={styles.map}
+              initialRegion={{
+                latitude: 31.4952,
+                longitude: 74.3157,
+                latitudeDelta: 0.1,
+                longitudeDelta: 0.1,
+              }}
             >
-              <Icon name="restaurant" size={30} color={colors.primary} />
-            </Marker>
-            <Marker
-              coordinate={deliveryLocation}
-              title="Customer Location"
-              pinColor={colors.success}
-            >
-              <Icon name="location" size={30} color={colors.success} />
-            </Marker>
-            <Polyline
-              coordinates={[restaurantLocation, deliveryLocation]}
-              strokeColor={colors.primary}
-              strokeWidth={3}
-            />
-          </MapView>
+              <Marker
+                coordinate={restaurantLocation}
+                title="Restaurant"
+                pinColor={colors.primary}
+              >
+                <Icon name="restaurant" size={30} color={colors.primary} />
+              </Marker>
+              <Marker
+                coordinate={deliveryLocation}
+                title="Customer Location"
+                pinColor={colors.success}
+              >
+                <Icon name="location" size={30} color={colors.success} />
+              </Marker>
+              <Polyline
+                coordinates={[restaurantLocation, deliveryLocation]}
+                strokeColor={colors.primary}
+                strokeWidth={3}
+              />
+            </MapView>
+          ) : (
+            <View style={styles.mapPlaceholder}>
+              <Icon name="map-outline" size={48} color={colors.text.secondary} />
+              <Text style={styles.placeholderText}>Map view is not available on web</Text>
+            </View>
+          )}
         </View>
 
         {/* Progress Steps */}
@@ -400,6 +424,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+  headerRight: {
+    width: 40, // Same as headerBackButton for balance
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -426,9 +453,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingTop: 50,
-    paddingBottom: 16,
+    paddingTop: Platform.OS === 'ios' ? 50 : 16,
+    paddingBottom: 12,
     backgroundColor: colors.primary,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    zIndex: 10,
   },
   headerBackButton: {
     width: 40,
@@ -446,9 +481,35 @@ const styles = StyleSheet.create({
   placeholder: {
     width: 40,
   },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 24,
+    paddingHorizontal: 16,
+  },
   mapContainer: {
     height: 200,
+    width: '100%',
+    borderRadius: 12,
+    overflow: 'hidden',
     backgroundColor: colors.lightGray,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  mapPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  placeholderText: {
+    marginTop: 10,
+    color: colors.text.secondary,
+    textAlign: 'center',
   },
   map: {
     flex: 1,

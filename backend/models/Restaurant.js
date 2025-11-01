@@ -1,5 +1,5 @@
 // backend/models/Restaurant.js
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const restaurantSchema = new mongoose.Schema(
   {
@@ -133,4 +133,6 @@ restaurantSchema.methods.calculateRating = async function () {
   await this.save();
 };
 
-module.exports = mongoose.model('Restaurant', restaurantSchema);
+const Restaurant = mongoose.model('Restaurant', restaurantSchema);
+
+export default Restaurant;

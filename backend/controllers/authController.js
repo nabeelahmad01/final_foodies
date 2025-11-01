@@ -1,13 +1,13 @@
 // backend/controllers/authController.js
-const User = require('../models/User');
-const { validationResult } = require('express-validator');
-const { generateToken } = require('../middleware/auth');
-const cloudinary = require('../config/cloudinary');
+import User from '../models/User.js';
+import { validationResult } from 'express-validator';
+import { generateToken } from '../middleware/auth.js';
+import cloudinary from '../config/cloudinary.js';
 
 // @desc    Register user
 // @route   POST /api/auth/register
 // @access  Public
-exports.register = async (req, res) => {
+export const register = async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -61,25 +61,38 @@ exports.register = async (req, res) => {
 // @desc    Login user
 // @route   POST /api/auth/login
 // @access  Public
-exports.login = async (req, res) => {
+export const login = async (req, res) => {
   try {
+    console.log('Login attempt with data:', { email: req.body.email });
+    
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      console.log('Validation errors:', errors.array());
       return res.status(400).json({ status: 'error', errors: errors.array() });
     }
 
     const { email, password } = req.body;
 
-    // Check for user (include password field)
-    const user = await User.findOne({ email }).select('+password');
-
-    if (!user || !(await user.comparePassword(password))) {
-      return res.status(401).json({
+    if (!email || !password) {
+      console.log('Missing email or password');
+      return res.status(400).json({
         status: 'error',
-        message: 'Invalid email or password',
+        message: 'Please provide both email and password',
       });
     }
 
+    // Check for user (include password field)
+    const user = await User.findOne({ email }).select('+password');
+    console.log('User found:', user ? 'Yes' : 'No');
+
+    if (!user) {
+      return res.status(401).json({
+        status: 'error',
+        message: 'No user found with this email',
+      });
+    }
+
+    // Check if user is active
     if (!user.isActive) {
       return res.status(401).json({
         status: 'error',
@@ -87,31 +100,59 @@ exports.login = async (req, res) => {
       });
     }
 
+    // Compare passwords
+    let isMatch;
+    try {
+      isMatch = await user.comparePassword(password);
+    } catch (error) {
+      console.error('Password comparison error:', error);
+      return res.status(500).json({
+        status: 'error',
+        message: 'Server error during password comparison',
+      });
+    }
+    console.log('Password match:', isMatch);
+
+    if (!isMatch) {
+      return res.status(401).json({
+        status: 'error',
+        message: 'Incorrect password',
+      });
+    }
+
     // Update last login
     user.lastLogin = new Date();
     await user.save({ validateBeforeSave: false });
+    console.log('Last login updated');
 
     // Generate token
     const token = generateToken(user._id);
+    console.log('Token generated');
 
+    // Prepare user data to send back (remove sensitive data)
+    const userData = {
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+      role: user.role,
+      kycStatus: user.kycStatus,
+      wallet: user.wallet,
+    };
+
+    console.log('Login successful for user:', userData.email);
+    
     res.json({
       status: 'success',
       token,
-      user: {
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        phone: user.phone,
-        role: user.role,
-        kycStatus: user.kycStatus,
-        wallet: user.wallet,
-      },
+      user: userData,
     });
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({
       status: 'error',
-      message: 'Server error during login',
+      message: error.message || 'Server error during login',
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
     });
   }
 };
@@ -119,7 +160,7 @@ exports.login = async (req, res) => {
 // @desc    Get current user
 // @route   GET /api/auth/me
 // @access  Private
-exports.getMe = async (req, res) => {
+export const getMe = async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
     res.json({
@@ -137,7 +178,7 @@ exports.getMe = async (req, res) => {
 // @desc    Update user profile
 // @route   PUT /api/auth/update-profile
 // @access  Private
-exports.updateProfile = async (req, res) => {
+export const updateProfile = async (req, res) => {
   try {
     const { name, phone, profileImage } = req.body;
 
@@ -162,32 +203,29 @@ exports.updateProfile = async (req, res) => {
 // @desc    Upload KYC documents
 // @route   POST /api/auth/upload-kyc
 // @access  Private
-exports.uploadKYC = async (req, res) => {
+export const uploadKYC = async (req, res) => {
   try {
-    if (!req.files || req.files.length === 0) {
+    if (!req.file) {
       return res.status(400).json({
         status: 'error',
-        message: 'Please upload at least one document',
+        message: 'Please upload a document',
       });
     }
 
     const user = await User.findById(req.user.id);
 
-    // Upload files to Cloudinary
-    const uploadPromises = req.files.map(file =>
-      cloudinary.uploader.upload(file.path, {
-        folder: 'kyc-documents',
-        resource_type: 'auto',
-      }),
-    );
+    // Upload file to Cloudinary
+    const result = await cloudinary.uploader.upload(req.file.path, {
+      folder: 'kyc-documents',
+      resource_type: 'auto',
+    });
 
-    const uploadResults = await Promise.all(uploadPromises);
-
-    // Save document URLs
-    user.kycDocuments = uploadResults.map((result, index) => ({
-      type: req.files[index].fieldname,
+    // Save document URL
+    user.kycDocuments = user.kycDocuments || [];
+    user.kycDocuments.push({
+      type: req.file.fieldname,
       url: result.secure_url,
-    }));
+    });
 
     user.kycStatus = 'pending';
     await user.save();
@@ -209,7 +247,7 @@ exports.uploadKYC = async (req, res) => {
 // @desc    Change password
 // @route   PUT /api/auth/change-password
 // @access  Private
-exports.changePassword = async (req, res) => {
+export const changePassword = async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -247,7 +285,7 @@ exports.changePassword = async (req, res) => {
 // @desc    Forgot password
 // @route   POST /api/auth/forgot-password
 // @access  Public
-exports.forgotPassword = async (req, res) => {
+export const forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
 
@@ -276,7 +314,7 @@ exports.forgotPassword = async (req, res) => {
 // @desc    Reset password
 // @route   PUT /api/auth/reset-password/:resetToken
 // @access  Public
-exports.resetPassword = async (req, res) => {
+export const resetPassword = async (req, res) => {
   try {
     // TODO: Implement password reset logic
     res.json({

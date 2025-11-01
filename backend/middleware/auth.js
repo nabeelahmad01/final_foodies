@@ -1,8 +1,8 @@
 // backend/middleware/auth.js
-const jwt = require('jsonwebtoken');
-const User = require('../models/User');
+import jwt from 'jsonwebtoken';
+import User from '../models/User.js';
 
-exports.protect = async (req, res, next) => {
+export const protect = async (req, res, next) => {
   try {
     let token;
 
@@ -15,10 +15,7 @@ exports.protect = async (req, res, next) => {
     }
 
     if (!token) {
-      return res.status(401).json({
-        status: 'error',
-        message: 'Not authorized, please login',
-      });
+      return next(new Error('Not authorized, please login'));
     }
 
     // Verify token
@@ -28,44 +25,36 @@ exports.protect = async (req, res, next) => {
     req.user = await User.findById(decoded.id).select('-password');
 
     if (!req.user) {
-      return res.status(401).json({
-        status: 'error',
-        message: 'User not found',
-      });
+      return next(new Error('User not found'));
     }
 
     if (!req.user.isActive) {
-      return res.status(401).json({
-        status: 'error',
-        message: 'Account is deactivated',
-      });
+      return next(new Error('Account is deactivated'));
     }
 
     next();
   } catch (error) {
     console.error('Auth middleware error:', error);
-    return res.status(401).json({
-      status: 'error',
-      message: 'Not authorized, token failed',
-    });
+    return next(new Error('Not authorized, token failed'));
   }
 };
 
 // Authorize based on roles
-exports.authorize = (...roles) => {
+export const authorize = (...roles) => {
   return (req, res, next) => {
-    if (!roles.includes(req.user.role)) {
-      return res.status(403).json({
-        status: 'error',
-        message: `Role '${req.user.role}' is not authorized to access this route`,
-      });
+    try {
+      if (!roles.includes(req.user.role)) {
+        throw new Error(`Role '${req.user.role}' is not authorized to access this route`);
+      }
+      next();
+    } catch (error) {
+      next(error);
     }
-    next();
   };
 };
 
 // Generate JWT token
-exports.generateToken = id => {
+export const generateToken = id => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRE,
   });

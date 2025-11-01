@@ -3,15 +3,15 @@
 // ============================================
 
 // backend/utils/pushNotifications.js
-const { Expo } = require('expo-server-sdk');
-const User = require('../models/User');
+import { Expo } from 'expo-server-sdk';
+import User from '../models/User.js';
 
 const expo = new Expo();
 
 // Add pushToken field to User model
 // pushToken: { type: String, default: null }
 
-async function sendPushNotification(userId, title, body, data = {}) {
+export const sendPushNotification = async (userId, title, body, data = {}) => {
   try {
     const user = await User.findById(userId);
 
@@ -45,7 +45,7 @@ async function sendPushNotification(userId, title, body, data = {}) {
 }
 
 // Send to multiple users
-async function sendBulkPushNotifications(userIds, title, body, data = {}) {
+export const sendBulkPushNotifications = async (userIds, title, body, data = {}) => {
   try {
     const users = await User.find({
       _id: { $in: userIds },
@@ -77,7 +77,8 @@ async function sendBulkPushNotifications(userIds, title, body, data = {}) {
   }
 }
 
-module.exports = {
+// Export the functions
+export default {
   sendPushNotification,
   sendBulkPushNotifications,
 };

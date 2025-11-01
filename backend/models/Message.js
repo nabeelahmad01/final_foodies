@@ -4,7 +4,7 @@
 
 // 1. Backend - Message Model
 // backend/models/Message.js
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const messageSchema = new mongoose.Schema(
   {
@@ -25,7 +25,9 @@ const messageSchema = new mongoose.Schema(
     },
     message: {
       type: String,
-      required: true,
+      required: function() {
+        return !this.imageUrl; // Message is required if no image
+      },
       trim: true,
     },
     type: {
@@ -35,8 +37,16 @@ const messageSchema = new mongoose.Schema(
     },
     imageUrl: String,
     location: {
-      latitude: Number,
-      longitude: Number,
+      type: {
+        type: String,
+        enum: ['Point'],
+        default: 'Point',
+      },
+      coordinates: {
+        type: [Number], // [longitude, latitude]
+        default: [0, 0],
+      },
+      address: String,
     },
     isRead: {
       type: Boolean,
@@ -46,11 +56,20 @@ const messageSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-  },
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
+  }
 );
 
-// Index for faster queries
+// Indexes
 messageSchema.index({ orderId: 1, createdAt: -1 });
+messageSchema.index({ senderId: 1, isRead: 1 });
 
-module.exports = mongoose.model('Message', messageSchema);
+// Virtual for message URL
+messageSchema.virtual('url').get(function() {
+  return `/api/messages/${this._id}`;
+});
 
+const Message = mongoose.model('Message', messageSchema);
+
+export default Message;

@@ -1,14 +1,14 @@
 // backend/controllers/orderController.js
-const Order = require('../models/Order');
-const User = require('../models/User');
-const Restaurant = require('../models/Restaurant');
-// In orderController.js - When order is placed
-const { sendPushNotification } = require('../utils/pushNotifications');
+import Order from '../models/Order.js';
+import User from '../models/User.js';
+import Restaurant from '../models/Restaurant.js';
+import pushNotifications from '../utils/pushNotifications.js';
+const { sendPushNotification } = pushNotifications;
 
 // @desc    Create new order
 // @route   POST /api/orders
 // @access  Private
-exports.createOrder = async (req, res) => {
+export const createOrder = async (req, res) => {
   try {
     const {
       restaurantId,
@@ -79,17 +79,11 @@ exports.createOrder = async (req, res) => {
     { type: 'restaurant_order', orderId: order._id },
   );
 };
-// When order status changes
-await sendPushNotification(
-  order.userId,
-  'Order Update',
-  `Your order is now ${order.status}`,
-  { type: 'order', orderId: order._id }
-);
+
 // @desc    Get user's orders
 // @route   GET /api/orders/my-orders
 // @access  Private
-exports.getMyOrders = async (req, res) => {
+export const getMyOrders = async (req, res) => {
   try {
     const orders = await Order.find({ userId: req.user.id })
       .populate('restaurantId', 'name images')
@@ -111,7 +105,7 @@ exports.getMyOrders = async (req, res) => {
 // @desc    Get order by ID
 // @route   GET /api/orders/:id
 // @access  Private
-exports.getOrderById = async (req, res) => {
+export const getOrderById = async (req, res) => {
   try {
     const order = await Order.findById(req.params.id)
       .populate('restaurantId', 'name address phone images')
@@ -152,7 +146,7 @@ exports.getOrderById = async (req, res) => {
 // @desc    Track order
 // @route   GET /api/orders/:id/track
 // @access  Private
-exports.trackOrder = async (req, res) => {
+export const trackOrder = async (req, res) => {
   try {
     const order = await Order.findById(req.params.id)
       .populate('restaurantId', 'name location')
@@ -180,7 +174,7 @@ exports.trackOrder = async (req, res) => {
 // @desc    Cancel order
 // @route   PUT /api/orders/:id/cancel
 // @access  Private
-exports.cancelOrder = async (req, res) => {
+export const cancelOrder = async (req, res) => {
   try {
     const order = await Order.findById(req.params.id);
 
@@ -244,7 +238,7 @@ exports.cancelOrder = async (req, res) => {
 // @desc    Accept order (restaurant)
 // @route   PUT /api/orders/:id/accept
 // @access  Private (Restaurant)
-exports.acceptOrder = async (req, res) => {
+export const acceptOrder = async (req, res) => {
   try {
     const order = await Order.findById(req.params.id);
 
@@ -277,7 +271,7 @@ exports.acceptOrder = async (req, res) => {
 // @desc    Reject order (restaurant)
 // @route   PUT /api/orders/:id/reject
 // @access  Private (Restaurant)
-exports.rejectOrder = async (req, res) => {
+export const rejectOrder = async (req, res) => {
   try {
     const order = await Order.findById(req.params.id);
 
@@ -313,7 +307,7 @@ exports.rejectOrder = async (req, res) => {
 // @desc    Update order status
 // @route   PUT /api/orders/:id/status
 // @access  Private (Restaurant/Rider)
-exports.updateOrderStatus = async (req, res) => {
+export const updateOrderStatus = async (req, res) => {
   try {
     const { status } = req.body;
     const order = await Order.findById(req.params.id);
@@ -344,7 +338,7 @@ exports.updateOrderStatus = async (req, res) => {
 // @desc    Get available orders for riders
 // @route   GET /api/orders/rider/available
 // @access  Private (Rider)
-exports.getAvailableOrders = async (req, res) => {
+export const getAvailableOrders = async (req, res) => {
   try {
     const orders = await Order.find({
       status: 'preparing',
@@ -369,7 +363,7 @@ exports.getAvailableOrders = async (req, res) => {
 // @desc    Accept delivery
 // @route   PUT /api/orders/:id/accept-delivery
 // @access  Private (Rider)
-exports.acceptDelivery = async (req, res) => {
+export const acceptDelivery = async (req, res) => {
   try {
     const order = await Order.findById(req.params.id);
 
@@ -407,7 +401,7 @@ exports.acceptDelivery = async (req, res) => {
 // @desc    Complete delivery
 // @route   PUT /api/orders/:id/complete-delivery
 // @access  Private (Rider)
-exports.completeDelivery = async (req, res) => {
+export const completeDelivery = async (req, res) => {
   try {
     const order = await Order.findById(req.params.id);
 
@@ -437,7 +431,7 @@ exports.completeDelivery = async (req, res) => {
 // @desc    Rate order
 // @route   POST /api/orders/:id/rate
 // @access  Private
-exports.rateOrder = async (req, res) => {
+export const rateOrder = async (req, res) => {
   try {
     const { foodRating, deliveryRating, comment } = req.body;
     const order = await Order.findById(req.params.id);

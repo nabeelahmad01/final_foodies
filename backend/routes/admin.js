@@ -1,8 +1,9 @@
 // backend/routes/admin.js
-const express = require('express');
+import express from 'express';
+import { protect, authorize } from '../middleware/auth.js';
+import * as adminController from '../controllers/adminController.js';
+
 const router = express.Router();
-const adminController = require('../controllers/adminController');
-const { protect, authorize } = require('../middleware/auth');
 
 // All routes require admin access
 router.use(protect, authorize('admin'));
@@ -29,4 +30,4 @@ router.get('/orders/stats', adminController.getOrderStats);
 router.get('/dashboard', adminController.getDashboardStats);
 router.get('/revenue', adminController.getRevenueStats);
 
-module.exports = router;
+export default router;

@@ -1,5 +1,5 @@
 // backend/models/MenuItem.js
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const menuItemSchema = new mongoose.Schema(
   {
@@ -64,4 +64,6 @@ const menuItemSchema = new mongoose.Schema(
 // Index for faster queries
 menuItemSchema.index({ restaurantId: 1, isAvailable: 1 });
 
-module.exports = mongoose.model('MenuItem', menuItemSchema);
+const MenuItem = mongoose.model('MenuItem', menuItemSchema);
+
+export default MenuItem;

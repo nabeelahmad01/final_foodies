@@ -1,8 +1,9 @@
 // backend/routes/restaurants.js
-const express = require('express');
+import express from 'express';
+import * as restaurantController from '../controllers/restaurantController.js';
+import { protect, authorize } from '../middleware/auth.js';
+
 const router = express.Router();
-const restaurantController = require('../controllers/restaurantController');
-const { protect, authorize } = require('../middleware/auth');
 
 // Public routes
 router.get('/', restaurantController.getRestaurants);
@@ -64,4 +65,4 @@ router.get(
   restaurantController.getRestaurantOrders,
 );
 
-module.exports = router;
+export default router;

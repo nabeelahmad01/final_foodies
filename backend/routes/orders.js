@@ -1,8 +1,9 @@
 // backend/routes/orders.js
-const express = require('express');
+import express from 'express';
+import * as orderController from '../controllers/orderController.js';
+import { protect, authorize } from '../middleware/auth.js';
+
 const router = express.Router();
-const orderController = require('../controllers/orderController');
-const { protect, authorize } = require('../middleware/auth');
 
 // Customer routes
 router.post('/', protect, orderController.createOrder);
@@ -52,4 +53,4 @@ router.put(
   orderController.completeDelivery,
 );
 
-module.exports = router;
+export default router;

@@ -1,5 +1,5 @@
 // backend/models/Order.js
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const orderSchema = new mongoose.Schema(
   {
@@ -127,4 +127,6 @@ orderSchema.methods.updateStatus = async function (newStatus, io) {
   return this;
 };
 
-module.exports = mongoose.model('Order', orderSchema);
+const Order = mongoose.model('Order', orderSchema);
+
+export default Order;

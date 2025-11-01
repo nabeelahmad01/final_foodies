@@ -55,10 +55,21 @@ const RegisterScreen = ({ navigation }) => {
     }
 
     try {
-      await dispatch(register({ name, email, phone, password, role })).unwrap();
-      // Navigation handled by AppNavigator
+      const result = await dispatch(register({ name, email, phone, password, role }));
+      if (result.error) {
+        // If there's an error, show the error message
+        const errorMessage = result.error.message || 'Registration failed. Please try again.';
+        Alert.alert('Registration Failed', errorMessage);
+      } else {
+        // Success - navigation will be handled by AppNavigator based on authentication state
+        console.log('Registration successful');
+      }
     } catch (error) {
-      Alert.alert('Registration Failed', error);
+      console.error('Registration error:', error);
+      Alert.alert(
+        'Registration Failed', 
+        error.message || 'An unexpected error occurred. Please try again.'
+      );
     }
   };
 

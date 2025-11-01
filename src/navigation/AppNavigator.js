@@ -4,62 +4,185 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { useDispatch, useSelector } from 'react-redux';
 import { loadUser } from '../redux/slices/authSlice';
 
-// Import Screens
+// Auth Screens
 import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
+import KYCUploadScreen from '../screens/auth/KYCUploadScreen';
+
+// User Screens
 import TabNavigator from './TabNavigator';
 import RestaurantDetailScreen from '../screens/user/RestaurantDetailScreen';
 import CheckoutScreen from '../screens/user/CheckoutScreen';
 import OrderTrackingScreen from '../screens/user/OrderTrackingScreen';
-import KYCUploadScreen from '../screens/auth/KYCUploadScreen';
-import ChatScreen from '../screens/chat/ChatScreen';
 import AddressManagementScreen from '../screens/user/AddressManagementScreen';
 import ProfileScreen from '../screens/user/ProfileScreen';
+
+// Restaurant Screens
 import RestaurantDashboard from '../screens/restaurant/RestaurantDashboard';
 import RestaurantMenuManagement from '../screens/restaurant/MenuManagement';
 import RestaurantOrders from '../screens/restaurant/OrdersScreen';
+
+// Rider Screens
 import RiderDashboard from '../screens/rider/RiderDashboard';
 import RiderDelivery from '../screens/rider/DeliveryScreen';
+
+// Common Screens
+import ChatScreen from '../screens/chat/ChatScreen';
 
 const Stack = createStackNavigator();
 
 const AppNavigator = () => {
   const dispatch = useDispatch();
-  const { isAuthenticated } = useSelector(state => state.auth);
+  const authState = useSelector(state => state.auth);
+  const { isAuthenticated, user } = React.useMemo(() => ({
+    isAuthenticated: authState.isAuthenticated,
+    user: authState.user
+  }), [authState.isAuthenticated, authState.user]);
 
   useEffect(() => {
-    dispatch(loadUser());
+    dispatch(loadUser()).unwrap().catch(() => {
+      // If loading user fails, make sure auth state resets
+      dispatch(logout());
+    });
   }, [dispatch]);
 
+  // Determine initial route based on authentication status
+  const getInitialRoute = () => {
+    if (!isAuthenticated) return 'Login';
+    if (user?.role === 'rider') return 'RiderDashboard';
+    if (user?.role === 'restaurant') return 'RestaurantDashboard';
+    return 'MainTabs';
+  };
+
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
-      {!isAuthenticated ? (
-        // Auth Screens
-        <>
-          <Stack.Screen name="Login" component={LoginScreen} />
-          <Stack.Screen name="Register" component={RegisterScreen} />
-        </>
-      ) : (
-        // Main App Screens
-        <>
-          <Stack.Screen name="MainTabs" component={TabNavigator} />
-          <Stack.Screen
-            name="RestaurantDetail"
-            component={RestaurantDetailScreen}
-          />
-          <Stack.Screen name="Checkout" component={CheckoutScreen} />
-          <Stack.Screen name="OrderTracking" component={OrderTrackingScreen} />
-          <Stack.Screen name="KYCUpload" component={KYCUploadScreen} />
-          <Stack.Screen name="ChatScreen" component={ChatScreen} />
-          <Stack.Screen name="AddressManagement" component={AddressManagementScreen} />
-          <Stack.Screen name="Profile" component={ProfileScreen} />
-          <Stack.Screen name="RestaurantDashboard" component={RestaurantDashboard} />
-          <Stack.Screen name="MenuManagement" component={RestaurantMenuManagement} />
-          <Stack.Screen name="RestaurantOrders" component={RestaurantOrders} />
-          <Stack.Screen name="RiderDashboard" component={RiderDashboard} />
-          <Stack.Screen name="DeliveryScreen" component={RiderDelivery} />
-        </>
-      )}
+    <Stack.Navigator 
+      initialRouteName={getInitialRoute()}
+      screenOptions={{
+        headerShown: false,
+        animation: 'slide_from_right',
+        gestureEnabled: true,
+      }}
+    >
+      {/* Auth Screens */}
+      <Stack.Screen name="Login" component={LoginScreen} />
+      <Stack.Screen name="Register" component={RegisterScreen} />
+      
+      {/* Main App Screens */}
+      <Stack.Screen name="MainTabs" component={TabNavigator} />
+      
+      {/* Role-based Screens */}
+      <Stack.Screen 
+        name="RiderDashboard" 
+        component={RiderDashboard} 
+        options={{
+          headerShown: true,
+          title: 'Rider Dashboard',
+          headerBackTitle: 'Back'
+        }}
+      />
+      <Stack.Screen 
+        name="RiderDelivery" 
+        component={RiderDelivery}
+        options={{
+          headerShown: false, // Hide default header
+          gestureEnabled: true,
+          animation: 'slide_from_right',
+        }}
+      />
+      <Stack.Screen 
+        name="RestaurantDashboard" 
+        component={RestaurantDashboard}
+        options={{
+          headerShown: true,
+          title: 'Restaurant Dashboard',
+          headerBackTitle: 'Back'
+        }}
+      />
+      
+      {/* Common Screens */}
+      <Stack.Screen 
+        name="RestaurantDetail"
+        component={RestaurantDetailScreen}
+        options={{
+          headerShown: true,
+          title: 'Restaurant Details',
+          headerBackTitle: 'Back'
+        }}
+      />
+      <Stack.Screen 
+        name="Checkout" 
+        component={CheckoutScreen}
+        options={{
+          headerShown: true,
+          title: 'Checkout',
+          headerBackTitle: 'Back'
+        }}
+      />
+      <Stack.Screen 
+        name="OrderTracking" 
+        component={OrderTrackingScreen}
+        options={{
+          headerShown: true,
+          title: 'Track Order',
+          headerBackTitle: 'Back'
+        }}
+      />
+      <Stack.Screen 
+        name="KYCUpload" 
+        component={KYCUploadScreen}
+        options={{
+          headerShown: true,
+          title: 'Verify Identity',
+          headerBackTitle: 'Back'
+        }}
+      />
+      <Stack.Screen 
+        name="ChatScreen" 
+        component={ChatScreen}
+        options={{
+          headerShown: true,
+          title: 'Chat',
+          headerBackTitle: 'Back'
+        }}
+      />
+      <Stack.Screen 
+        name="AddressManagement" 
+        component={AddressManagementScreen}
+        options={{
+          headerShown: true,
+          title: 'My Addresses',
+          headerBackTitle: 'Back'
+        }}
+      />
+      <Stack.Screen 
+        name="Profile" 
+        component={ProfileScreen}
+        options={{
+          headerShown: true,
+          title: 'My Profile',
+          headerBackTitle: 'Back'
+        }}
+      />
+      
+      {/* Restaurant Management */}
+      <Stack.Screen 
+        name="MenuManagement" 
+        component={RestaurantMenuManagement}
+        options={{
+          headerShown: true,
+          title: 'Menu Management',
+          headerBackTitle: 'Back'
+        }}
+      />
+      <Stack.Screen 
+        name="RestaurantOrders" 
+        component={RestaurantOrders}
+        options={{
+          headerShown: true,
+          title: 'Restaurant Orders',
+          headerBackTitle: 'Back'
+        }}
+      />
     </Stack.Navigator>
   );
 };

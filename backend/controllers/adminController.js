@@ -1,12 +1,12 @@
 // backend/controllers/adminController.js
-const User = require('../models/User');
-const Restaurant = require('../models/Restaurant');
-const Order = require('../models/Order');
+import User from '../models/User.js';
+import Restaurant from '../models/Restaurant.js';
+import Order from '../models/Order.js';
 
 // @desc    Get pending KYC verifications
 // @route   GET /api/admin/kyc-pending
 // @access  Private/Admin
-exports.getPendingKYC = async (req, res) => {
+export const getPendingKYC = async (req, res) => {
   try {
     const users = await User.find({ kycStatus: 'pending' }).select(
       'name email role kycDocuments createdAt',
@@ -28,7 +28,7 @@ exports.getPendingKYC = async (req, res) => {
 // @desc    Approve KYC
 // @route   PUT /api/admin/kyc-approve/:userId
 // @access  Private/Admin
-exports.approveKYC = async (req, res) => {
+export const approveKYC = async (req, res) => {
   try {
     const user = await User.findByIdAndUpdate(
       req.params.userId,
@@ -61,7 +61,7 @@ exports.approveKYC = async (req, res) => {
 // @desc    Reject KYC
 // @route   PUT /api/admin/kyc-reject/:userId
 // @access  Private/Admin
-exports.rejectKYC = async (req, res) => {
+export const rejectKYC = async (req, res) => {
   try {
     const { reason } = req.body;
 
@@ -96,7 +96,7 @@ exports.rejectKYC = async (req, res) => {
 // @desc    Get all users
 // @route   GET /api/admin/users
 // @access  Private/Admin
-exports.getAllUsers = async (req, res) => {
+export const getAllUsers = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 20;
@@ -131,7 +131,7 @@ exports.getAllUsers = async (req, res) => {
 // @desc    Get user by ID
 // @route   GET /api/admin/users/:id
 // @access  Private/Admin
-exports.getUserById = async (req, res) => {
+export const getUserById = async (req, res) => {
   try {
     const user = await User.findById(req.params.id).select('-password');
 
@@ -157,7 +157,7 @@ exports.getUserById = async (req, res) => {
 // @desc    Update user status
 // @route   PUT /api/admin/users/:id/status
 // @access  Private/Admin
-exports.updateUserStatus = async (req, res) => {
+export const updateUserStatus = async (req, res) => {
   try {
     const { isActive } = req.body;
 
@@ -190,7 +190,7 @@ exports.updateUserStatus = async (req, res) => {
 // @desc    Get all restaurants
 // @route   GET /api/admin/restaurants
 // @access  Private/Admin
-exports.getAllRestaurants = async (req, res) => {
+export const getAllRestaurants = async (req, res) => {
   try {
     const restaurants = await Restaurant.find()
       .populate('ownerId', 'name email')
@@ -212,7 +212,7 @@ exports.getAllRestaurants = async (req, res) => {
 // @desc    Update restaurant status
 // @route   PUT /api/admin/restaurants/:id/status
 // @access  Private/Admin
-exports.updateRestaurantStatus = async (req, res) => {
+export const updateRestaurantStatus = async (req, res) => {
   try {
     const { isActive } = req.body;
 
@@ -245,7 +245,7 @@ exports.updateRestaurantStatus = async (req, res) => {
 // @desc    Get all orders
 // @route   GET /api/admin/orders
 // @access  Private/Admin
-exports.getAllOrders = async (req, res) => {
+export const getAllOrders = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 20;
@@ -282,7 +282,7 @@ exports.getAllOrders = async (req, res) => {
 // @desc    Get order statistics
 // @route   GET /api/admin/orders/stats
 // @access  Private/Admin
-exports.getOrderStats = async (req, res) => {
+export const getOrderStats = async (req, res) => {
   try {
     const stats = await Order.aggregate([
       {
@@ -309,7 +309,7 @@ exports.getOrderStats = async (req, res) => {
 // @desc    Get dashboard statistics
 // @route   GET /api/admin/dashboard
 // @access  Private/Admin
-exports.getDashboardStats = async (req, res) => {
+export const getDashboardStats = async (req, res) => {
   try {
     const totalUsers = await User.countDocuments();
     const totalRestaurants = await Restaurant.countDocuments();
@@ -360,7 +360,7 @@ exports.getDashboardStats = async (req, res) => {
 // @desc    Get revenue statistics
 // @route   GET /api/admin/revenue
 // @access  Private/Admin
-exports.getRevenueStats = async (req, res) => {
+export const getRevenueStats = async (req, res) => {
   try {
     const { period = 'week' } = req.query; // week, month, year
 

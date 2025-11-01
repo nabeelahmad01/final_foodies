@@ -1,12 +1,14 @@
 // backend/controllers/paymentController.js
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
-const User = require('../models/User');
-const Order = require('../models/Order');
+import Stripe from 'stripe';
+import User from '../models/User.js';
+import Order from '../models/Order.js';
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 // @desc    Create payment intent for order
 // @route   POST /api/payments/create-intent
 // @access  Private
-exports.createPaymentIntent = async (req, res) => {
+export const createPaymentIntent = async (req, res) => {
   try {
     const { amount } = req.body;
 
@@ -73,7 +75,7 @@ exports.createPaymentIntent = async (req, res) => {
 // @desc    Wallet top-up
 // @route   POST /api/payments/wallet-topup
 // @access  Private
-exports.walletTopup = async (req, res) => {
+export const walletTopup = async (req, res) => {
   try {
     const { amount, paymentMethodId } = req.body;
 
@@ -126,7 +128,7 @@ exports.walletTopup = async (req, res) => {
 // @desc    Get wallet balance
 // @route   GET /api/payments/wallet-balance
 // @access  Private
-exports.getWalletBalance = async (req, res) => {
+export const getWalletBalance = async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
 
@@ -146,7 +148,7 @@ exports.getWalletBalance = async (req, res) => {
 // @desc    Stripe webhook handler
 // @route   POST /api/payments/webhook
 // @access  Public
-exports.stripeWebhook = async (req, res) => {
+export const stripeWebhook = async (req, res) => {
   const sig = req.headers['stripe-signature'];
   let event;
 
@@ -197,7 +199,7 @@ exports.stripeWebhook = async (req, res) => {
 // @desc    Request payout (for restaurant/rider)
 // @route   POST /api/payments/payout-request
 // @access  Private
-exports.requestPayout = async (req, res) => {
+export const requestPayout = async (req, res) => {
   try {
     const { amount } = req.body;
     const user = await User.findById(req.user.id);
@@ -225,7 +227,7 @@ exports.requestPayout = async (req, res) => {
 // @desc    Get payment history
 // @route   GET /api/payments/history
 // @access  Private
-exports.getPaymentHistory = async (req, res) => {
+export const getPaymentHistory = async (req, res) => {
   try {
     const orders = await Order.find({
       userId: req.user.id,

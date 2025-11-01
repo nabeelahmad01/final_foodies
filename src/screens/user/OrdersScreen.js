@@ -138,7 +138,7 @@ const OrdersScreen = ({ navigation }) => {
       <Text style={styles.emptySubtext}>Start ordering delicious food!</Text>
       <TouchableOpacity
         style={styles.browseButton}
-        onPress={() => navigation.navigate('Home')}
+        onPress={() => navigation.navigate('MainTabs', { screen: 'Home' })}
       >
         <Text style={styles.browseButtonText}>Browse Restaurants</Text>
       </TouchableOpacity>

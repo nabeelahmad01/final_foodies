@@ -4,10 +4,11 @@
 
 // Backend route - already in User model addresses array
 // backend/routes/addresses.js
-const express = require('express');
+import express from 'express';
+import { protect } from '../middleware/auth.js';
+import User from '../models/User.js';
+
 const router = express.Router();
-const { protect } = require('../middleware/auth');
-const User = require('../models/User');
 
 router.get('/', protect, async (req, res) => {
   try {
@@ -79,4 +80,4 @@ router.delete('/:addressId', protect, async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;
