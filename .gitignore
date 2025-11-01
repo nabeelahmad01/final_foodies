@@ -42,4 +42,3 @@ app-example
 /ios
 /android
 /backend/.env
-/backend/routes/.env
