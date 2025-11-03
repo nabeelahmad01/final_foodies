@@ -50,10 +50,8 @@ const AppNavigator = () => {
   }), [authState.isAuthenticated, authState.user]);
 
   useEffect(() => {
-    dispatch(loadUser()).unwrap().catch(() => {
-      // If loading user fails, make sure auth state resets
-      dispatch(logout());
-    });
+    // Remove automatic user loading
+    // Users must now log in manually
   }, [dispatch]);
 
   // Determine initial route based on authentication status and restaurant setup

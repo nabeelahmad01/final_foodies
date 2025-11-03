@@ -70,12 +70,45 @@ const MenuManagement = ({ navigation, route }) => {
   // Load data when screen comes into focus
   useFocusEffect(
     useCallback(() => {
-      fetchCategories();
+      if (restaurantId) {
+        fetchCategories();
+      }
       return () => {
         // Cleanup if needed
       };
-    }, [])
+    }, [restaurantId])
   );
+
+  const fetchCategories = async () => {
+    try {
+      setLoading(true);
+      // Real API call to fetch categories
+      const response = await api.get(`/restaurants/${restaurantId}/categories`);
+      setCategories(response.data);
+      if (response.data.length > 0 && !selectedCategory) {
+        setSelectedCategory(response.data[0]);
+      }
+    } catch (error) {
+      console.error('Failed to fetch categories:', error);
+      handleApiError(error, toast);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchMenuItems = async (categoryId) => {
+    try {
+      setLoading(true);
+      // Real API call to fetch menu items
+      const response = await api.get(`/restaurants/${restaurantId}/menu?category=${categoryId}`);
+      setMenuItems(response.data);
+    } catch (error) {
+      console.error('Failed to fetch menu items:', error);
+      handleApiError(error, toast);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Load menu items when category changes
   useEffect(() => {
@@ -91,65 +124,6 @@ const MenuManagement = ({ navigation, route }) => {
     fetchCategories().finally(() => setRefreshing(false));
   }, []);
 
-  const fetchCategories = async () => {
-    try {
-      setLoading(true);
-      // In production: const response = await api.get(`/restaurants/${restaurantId}/categories`);
-      // Mock data for development
-      const mockCategories = [
-        { _id: '1', name: 'Burgers', items: [] },
-        { _id: '2', name: 'Pizza', items: [] },
-        { _id: '3', name: 'Biryani', items: [] },
-        { _id: '4', name: 'Tikka', items: [] },
-        { _id: '5', name: 'Karahi', items: [] },
-      ];
-      setCategories(mockCategories);
-      if (mockCategories.length > 0 && !selectedCategory) {
-        setSelectedCategory(mockCategories[0]);
-      }
-    } catch (error) {
-      console.error('Failed to fetch categories:', error);
-      handleApiError(error, toast);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchMenuItems = async (categoryId) => {
-    try {
-      setLoading(true);
-      // In production: const response = await api.get(`/restaurants/${restaurantId}/menu?category=${categoryId}`);
-      // Mock data for development
-      const mockMenuItems = {
-        '1': [
-          { _id: '101', name: 'Chicken Burger', description: 'Juicy chicken patty with fresh veggies', price: 350, image: 'https://via.placeholder.com/150', isAvailable: true },
-          { _id: '102', name: 'Beef Burger', description: 'Classic beef patty with cheese', price: 450, image: 'https://via.placeholder.com/150', isAvailable: true },
-          { _id: '103', name: 'Zinger Burger', description: 'Spicy crispy chicken burger', price: 400, image: 'https://via.placeholder.com/150', isAvailable: false },
-        ],
-        '2': [
-          { _id: '201', name: 'Margherita Pizza', description: 'Classic cheese pizza', price: 800, image: 'https://via.placeholder.com/150', isAvailable: true },
-          { _id: '202', name: 'Pepperoni Pizza', description: 'Pepperoni with extra cheese', price: 950, image: 'https://via.placeholder.com/150', isAvailable: true },
-        ],
-        '3': [
-          { _id: '301', name: 'Chicken Biryani', description: 'Fragrant rice with chicken', price: 300, image: 'https://via.placeholder.com/150', isAvailable: true },
-          { _id: '302', name: 'Beef Biryani', description: 'Spicy beef biryani', price: 350, image: 'https://via.placeholder.com/150', isAvailable: true },
-        ],
-      };
-      
-      setMenuItems(mockMenuItems[categoryId] || []);
-    } catch (error) {
-      console.error('Failed to fetch menu items:', error);
-      handleApiError(error, toast);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Handle category selection
-  const handleSelectCategory = (category) => {
-    setSelectedCategory(category);
-  };
-
   // Add new category
   const handleAddCategory = async () => {
     if (!newCategory.trim()) {
@@ -158,15 +132,13 @@ const MenuManagement = ({ navigation, route }) => {
     }
 
     try {
-      // In production: await api.post(`/restaurants/${restaurantId}/categories`, { name: newCategory.trim() });
-      const newCat = {
-        _id: Date.now().toString(),
-        name: newCategory.trim(),
-        items: []
-      };
+      // Real API call to add category
+      const response = await api.post(`/restaurants/${restaurantId}/categories`, { 
+        name: newCategory.trim() 
+      });
       
-      setCategories(prev => [...prev, newCat]);
-      setSelectedCategory(newCat);
+      setCategories(prev => [...prev, response.data]);
+      setSelectedCategory(response.data);
       setShowCategoryModal(false);
       setNewCategory('');
       showSuccess(toast, 'Category added successfully');
@@ -179,7 +151,9 @@ const MenuManagement = ({ navigation, route }) => {
   // Delete category
   const handleDeleteCategory = async (categoryId) => {
     try {
-      // In production: await api.delete(`/restaurants/${restaurantId}/categories/${categoryId}`);
+      // Real API call to delete category
+      await api.delete(`/restaurants/${restaurantId}/categories/${categoryId}`);
+      
       setCategories(prev => prev.filter(cat => cat._id !== categoryId));
       if (selectedCategory && selectedCategory._id === categoryId) {
         setSelectedCategory(null);
@@ -312,40 +286,49 @@ const MenuManagement = ({ navigation, route }) => {
     setUploading(true);
 
     try {
-      let imageUrl = formData.image?.uri || 'https://via.placeholder.com/150';
-
-      // Upload image if it's a new image (not a URL)
-      if (formData.image && !formData.image.uri.startsWith('http')) {
-        imageUrl = await uploadImageToServer(formData.image);
+      // Prepare form data
+      const form = new FormData();
+      form.append('name', formData.name.trim());
+      form.append('description', formData.description.trim());
+      form.append('price', parseFloat(formData.price));
+      form.append('category', selectedCategory._id);
+      form.append('isAvailable', formData.isAvailable);
+      
+      if (formData.image && formData.image.uri) {
+        form.append('image', {
+          uri: formData.image.uri,
+          name: formData.image.fileName || 'menu_item.jpg',
+          type: formData.image.type || 'image/jpeg'
+        });
       }
 
-      const menuItem = {
-        _id: editingItem?._id || Date.now().toString(),
-        name: formData.name.trim(),
-        description: formData.description.trim(),
-        price: parseFloat(formData.price),
-        category: selectedCategory._id,
-        isAvailable: formData.isAvailable,
-        image: imageUrl,
-      };
+      let response;
+      if (editingItem) {
+        // Update existing item
+        response = await api.put(
+          `/restaurants/${restaurantId}/menu/${editingItem._id}`, 
+          form,
+          { headers: { 'Content-Type': 'multipart/form-data' } }
+        );
+      } else {
+        // Create new item
+        response = await api.post(
+          `/restaurants/${restaurantId}/menu`, 
+          form,
+          { headers: { 'Content-Type': 'multipart/form-data' } }
+        );
+      }
 
-      // In production: Make API call to save the menu item
-      // if (editingItem) {
-      //   await api.put(`/restaurants/${restaurantId}/menu/${editingItem._id}`, menuItem);
-      // } else {
-      //   await api.post(`/restaurants/${restaurantId}/menu`, menuItem);
-      // }
-
-      // For development, update local state
+      // Update local state
       if (editingItem) {
         setMenuItems(prev => 
           prev.map(item => 
-            item._id === editingItem._id ? menuItem : item
+            item._id === editingItem._id ? response.data : item
           )
         );
         showSuccess(toast, 'Menu item updated');
       } else {
-        setMenuItems(prev => [...prev, menuItem]);
+        setMenuItems(prev => [...prev, response.data]);
         showSuccess(toast, 'Menu item added');
       }
 
@@ -376,7 +359,8 @@ const MenuManagement = ({ navigation, route }) => {
       if (confirmDelete.type === 'category') {
         handleDeleteCategory(confirmDelete.id);
       } else {
-        // In production: await api.delete(`/restaurants/${restaurantId}/menu/${confirmDelete.id}`);
+        // Real API call to delete item
+        await api.delete(`/restaurants/${restaurantId}/menu/${confirmDelete.id}`);
         setMenuItems(prev => prev.filter(item => item._id !== confirmDelete.id));
         showSuccess(toast, 'Item deleted');
       }

@@ -34,7 +34,7 @@ export const register = createAsyncThunk(
   'auth/register',
   async (userData, { rejectWithValue }) => {
     try {
-const response = isDevelopment
+      const response = isDevelopment
         ? await apiClient.register(userData)
         : (await apiClient.post('/auth/register', userData)).data;
       
@@ -140,7 +140,7 @@ const authSlice = createSlice({
       }
     },
   },
-  extraReducers: builder => {
+  extraReducers: (builder) => {
     builder
       // Login
       .addCase(login.pending, state => {
@@ -148,10 +148,10 @@ const authSlice = createSlice({
         state.error = null;
       })
       .addCase(login.fulfilled, (state, action) => {
-        state.isLoading = false;
         state.isAuthenticated = true;
         state.user = action.payload.user;
-        state.token = action.payload.token;
+        state.isLoading = false;
+        state.error = null;
       })
       .addCase(login.rejected, (state, action) => {
         state.isLoading = false;
@@ -163,32 +163,21 @@ const authSlice = createSlice({
         state.error = null;
       })
       .addCase(register.fulfilled, (state, action) => {
-        state.isLoading = false;
         state.isAuthenticated = true;
         state.user = action.payload.user;
-        state.token = action.payload.token;
+        state.isLoading = false;
+        state.error = null;
       })
       .addCase(register.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload;
       })
       // Logout
-      .addCase(logout.fulfilled, state => {
-        state.user = null;
-        state.token = null;
+      .addCase(logout.fulfilled, (state) => {
         state.isAuthenticated = false;
-      })
-      // Load User
-      .addCase(loadUser.fulfilled, (state, action) => {
-        state.user = action.payload || null;
-        state.isAuthenticated = !!action.payload;
-        if (!action.payload) {
-          state.token = null;
-        }
-      })
-      .addCase(loadUser.rejected, state => {
         state.user = null;
-        state.isAuthenticated = false;
+        state.isLoading = false;
+        state.error = null;
       });
   },
 });
