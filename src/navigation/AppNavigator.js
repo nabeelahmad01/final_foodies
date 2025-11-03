@@ -2,7 +2,6 @@
 import { createStackNavigator } from '@react-navigation/stack';
 import React, { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { loadUser, logout } from '../redux/slices/authSlice';
 
 // Auth Screens
 import KYCStatusScreen from '../screens/auth/KYCStatusScreen';
@@ -101,44 +100,40 @@ const AppNavigator = () => {
         name="RiderDashboard" 
         component={RiderDashboard} 
         options={{
-          headerShown: true,
-          title: 'Rider Dashboard',
-          headerBackTitle: 'Back'
+          headerShown: false,
         }}
       />
       <Stack.Screen 
         name="AddressPicker" 
         component={AddressPickerScreen}
         options={{
-          headerShown: true,
-          title: 'Select Address on Map',
-          headerBackTitle: 'Back'
+          headerShown: false,
         }}
       />
       <Stack.Screen 
         name="Wallet" 
         component={WalletScreen}
-        options={{ headerShown: true, title: 'Wallet', headerBackTitle: 'Back' }}
+        options={{ headerShown: false, }}
       />
       <Stack.Screen 
         name="PaymentMethods" 
         component={PaymentMethodsScreen}
-        options={{ headerShown: true, title: 'Payment Methods', headerBackTitle: 'Back' }}
+        options={{ headerShown: false, }}
       />
       <Stack.Screen 
         name="Notifications" 
         component={NotificationsScreen}
-        options={{ headerShown: true, title: 'Notifications', headerBackTitle: 'Back' }}
+        options={{ headerShown: false, }}
       />
       <Stack.Screen 
         name="Help" 
         component={HelpScreen}
-        options={{ headerShown: true, title: 'Help & Support', headerBackTitle: 'Back' }}
+        options={{ headerShown: false, }}
       />
       <Stack.Screen 
         name="Terms" 
         component={TermsScreen}
-        options={{ headerShown: true, title: 'Terms & Conditions', headerBackTitle: 'Back' }}
+        options={{ headerShown: false,}}
       />
       <Stack.Screen 
         name="RiderDelivery" 
@@ -153,9 +148,7 @@ const AppNavigator = () => {
         name="RestaurantDashboard" 
         component={RestaurantDashboard}
         options={{
-          headerShown: true,
-          title: 'Restaurant Dashboard',
-          headerBackTitle: 'Back',
+          headerShown: false,
           headerLeft: () => null, // Prevent going back to MenuManagement
           gestureEnabled: false // Disable swipe back
         }}
@@ -164,9 +157,7 @@ const AppNavigator = () => {
         name="MenuManagement" 
         component={RestaurantMenuManagement}
         options={{
-          headerShown: true,
-          title: 'Menu Management',
-          headerBackTitle: 'Back',
+          headerShown: false,
           gestureEnabled: true
         }}
       />
@@ -175,18 +166,14 @@ const AppNavigator = () => {
         name="KYCStatus" 
         component={KYCStatusScreen}
         options={{
-          headerShown: true,
-          title: 'KYC Status',
-          headerBackTitle: 'Back'
+          headerShown: false,
         }}
       />
       <Stack.Screen 
         name="SetupRestaurant" 
         component={SetupRestaurantScreen}
         options={{
-          headerShown: true,
-          title: 'Setup Restaurant',
-          headerBackTitle: 'Back',
+          headerShown: false,
           headerLeft: () => null, // Prevent going back to KYC status
           gestureEnabled: false // Disable swipe back
         }}
@@ -197,63 +184,49 @@ const AppNavigator = () => {
         name="RestaurantDetail"
         component={RestaurantDetailScreen}
         options={{
-          headerShown: true,
-          title: 'Restaurant Details',
-          headerBackTitle: 'Back'
+          headerShown: false,
         }}
       />
       <Stack.Screen 
         name="Checkout" 
         component={CheckoutScreen}
         options={{
-          headerShown: true,
-          title: 'Checkout',
-          headerBackTitle: 'Back'
+          headerShown: false,
         }}
       />
       <Stack.Screen 
         name="OrderTracking" 
         component={OrderTrackingScreen}
         options={{
-          headerShown: true,
-          title: 'Track Order',
-          headerBackTitle: 'Back'
+          headerShown: false,
         }}
       />
       <Stack.Screen 
         name="KYCUpload" 
         component={KYCUploadScreen}
         options={{
-          headerShown: true,
-          title: 'Verify Identity',
-          headerBackTitle: 'Back'
+          headerShown: false,
         }}
       />
       <Stack.Screen 
         name="ChatScreen" 
         component={ChatScreen}
         options={{
-          headerShown: true,
-          title: 'Chat',
-          headerBackTitle: 'Back'
+          headerShown: false,
         }}
       />
       <Stack.Screen 
         name="AddressManagement" 
         component={AddressManagementScreen}
         options={{
-          headerShown: true,
-          title: 'My Addresses',
-          headerBackTitle: 'Back'
+          headerShown: false,
         }}
       />
       <Stack.Screen 
         name="Profile" 
         component={ProfileScreen}
         options={{
-          headerShown: true,
-          title: 'My Profile',
-          headerBackTitle: 'Back'
+          headerShown: false,
         }}
       />
       
@@ -262,9 +235,7 @@ const AppNavigator = () => {
         name="RestaurantOrders" 
         component={RestaurantOrders}
         options={{
-          headerShown: true,
-          title: 'Restaurant Orders',
-          headerBackTitle: 'Back'
+          headerShown: false,
         }}
       />
     </Stack.Navigator>
