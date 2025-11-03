@@ -16,46 +16,83 @@ const api = axios.create({
   },
 });
 
-// Request interceptor - Add token to headers and handle mock API
+// Request interceptor - Add token to headers
 api.interceptors.request.use(
   async config => {
     try {
       // In development, use mock data for specific endpoints
-      if (isDevelopment && config.url === '/auth/me') {
-        console.log('Using mock data for /auth/me in development');
-        // Create a mock response
-        const mockResponse = {
-          data: {
-            id: 'mock-user-id',
-            _id: 'mock-user-id',
-            email: 'admin786@gmail.com',
-            name: 'Rizwan',
-            phone: '031807371071',
-            role: 'restaurant',
-            kycStatus: 'pending',
-            isEmailVerified: true,
-            isPhoneVerified: true,
-            createdAt: new Date().toISOString()
-          },
-          status: 200,
-          statusText: 'OK',
-          headers: {},
-          config: { ...config, __isRetryRequest: true },
-          request: {}
-        };
+      if (isDevelopment) {
+        // Handle mock data for /auth/me
+        if (config.url === '/auth/me') {
+          console.log('Using mock data for /auth/me in development');
+          config.adapter = () => {
+            return Promise.resolve({
+              data: {
+                id: 'mock-user-id',
+                _id: 'mock-user-id',
+                email: 'admin786@gmail.com',
+                name: 'Rizwan',
+                phone: '031807371071',
+                role: 'restaurant',
+                kycStatus: 'pending',
+                isEmailVerified: true,
+                isPhoneVerified: true,
+                createdAt: new Date().toISOString()
+              },
+              status: 200,
+              statusText: 'OK',
+              headers: {},
+              config: { ...config, __isRetryRequest: true },
+              request: {}
+            });
+          };
+          return config;
+        }
         
-        // Return a resolved promise with the mock response
-        return Promise.resolve(mockResponse);
+        // Handle mock data for KYC upload
+        if (config.url === '/auth/upload-kyc') {
+          console.log('Using mock data for /auth/upload-kyc in development');
+          config.adapter = () => {
+            return Promise.resolve({
+              data: {
+                success: true,
+                message: 'KYC documents uploaded successfully',
+                kycStatus: 'pending_verification'
+              },
+              status: 200,
+              statusText: 'OK',
+              headers: {},
+              config: { ...config, __isRetryRequest: true },
+              request: {}
+            });
+          };
+          return config;
+        }
       }
 
-      // For non-mock requests, add the token
-      const token = await AsyncStorage.getItem('userToken');
+      // For real API requests, add the token
+      let token = await AsyncStorage.getItem('userToken');
+      
+      // Remove any existing Bearer prefix to avoid duplication
+      if (token && token.startsWith('Bearer ')) {
+        token = token.replace('Bearer ', '').trim();
+      }
+      
       if (token) {
-        const formattedToken = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+        // Ensure the token is properly formatted with Bearer prefix
+        const formattedToken = `Bearer ${token}`;
         config.headers.Authorization = formattedToken;
-        console.log('Adding token to request:', formattedToken.substring(0, 20) + '...');
+        
+        // Log token info for debugging (don't log the full token in production)
+        if (isDevelopment) {
+          console.log('Token being sent:', {
+            tokenStart: token.substring(0, 10) + '...',
+            tokenEnd: '...' + token.substring(token.length - 10),
+            length: token.length
+          });
+        }
       } else {
-        console.log('No token found in AsyncStorage');
+        console.warn('No token found in AsyncStorage');
       }
       
       return config;

@@ -31,19 +31,64 @@ const RestaurantDashboard = ({ navigation }) => {
 
   const fetchDashboardData = async () => {
     try {
+      if (!user || !user._id) {
+        console.error('User ID is not available');
+        return;
+      }
+      
+      console.log('Fetching restaurant for user ID:', user._id);
+      
       // Fetch restaurant details
       const restaurantRes = await api.get(`/restaurants?ownerId=${user._id}`);
-      if (restaurantRes.data.restaurants.length > 0) {
+      
+      if (restaurantRes.data && restaurantRes.data.restaurants && restaurantRes.data.restaurants.length > 0) {
         const restaurantData = restaurantRes.data.restaurants[0];
+        console.log('Restaurant data:', restaurantData);
+        
         setRestaurant(restaurantData);
-        setIsOpen(restaurantData.isOpen);
+        setIsOpen(restaurantData.isOpen || false);
 
-        // Fetch dashboard stats
-        const statsRes = await api.get(`/restaurants/${restaurantData._id}/dashboard`);
-        setStats(statsRes.data.stats);
+        // Only fetch stats if we have a valid restaurant ID
+        if (restaurantData._id) {
+          console.log('Fetching dashboard stats for restaurant ID:', restaurantData._id);
+          const statsRes = await api.get(`/restaurants/${restaurantData._id}/dashboard`);
+          if (statsRes.data && statsRes.data.stats) {
+            setStats(statsRes.data.stats);
+          } else {
+            console.warn('Invalid stats response format:', statsRes.data);
+            setStats({
+              totalOrders: 0,
+              pendingOrders: 0,
+              completedOrders: 0,
+              totalEarnings: 0,
+              monthlyEarnings: 0,
+              weeklyEarnings: 0
+            });
+          }
+        }
+      } else {
+        console.log('No restaurant found for user');
+        setRestaurant(null);
+        setStats({
+          totalOrders: 0,
+          pendingOrders: 0,
+          completedOrders: 0,
+          totalEarnings: 0,
+          monthlyEarnings: 0,
+          weeklyEarnings: 0
+        });
       }
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);
+      // Set default stats on error
+      setStats({
+        totalOrders: 0,
+        pendingOrders: 0,
+        completedOrders: 0,
+        totalEarnings: 0,
+        monthlyEarnings: 0,
+        weeklyEarnings: 0
+      });
     }
   };
 

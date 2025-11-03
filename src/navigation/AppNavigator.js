@@ -1,40 +1,42 @@
 // src/navigation/AppNavigator.js
-import React, { useEffect } from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
+import React, { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { loadUser, logout } from '../redux/slices/authSlice';
 
 // Auth Screens
+import KYCStatusScreen from '../screens/auth/KYCStatusScreen';
+import KYCUploadScreen from '../screens/auth/KYCUploadScreen';
 import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
-import KYCUploadScreen from '../screens/auth/KYCUploadScreen';
+
 
 // User Screens
-import TabNavigator from './TabNavigator';
-import RestaurantDetailScreen from '../screens/user/RestaurantDetailScreen';
+import AddressManagementScreen from '../screens/user/AddressManagementScreen';
 import CheckoutScreen from '../screens/user/CheckoutScreen';
 import OrderTrackingScreen from '../screens/user/OrderTrackingScreen';
-import AddressManagementScreen from '../screens/user/AddressManagementScreen';
 import ProfileScreen from '../screens/user/ProfileScreen';
+import RestaurantDetailScreen from '../screens/user/RestaurantDetailScreen';
+import TabNavigator from './TabNavigator';
 
 // Restaurant Screens
-import RestaurantDashboard from '../screens/restaurant/RestaurantDashboard';
 import RestaurantMenuManagement from '../screens/restaurant/MenuManagement';
 import RestaurantOrders from '../screens/restaurant/OrdersScreen';
+import RestaurantDashboard from '../screens/restaurant/RestaurantDashboard';
 import SetupRestaurantScreen from '../screens/restaurant/SetupRestaurantScreen';
 
 // Rider Screens
-import RiderDashboard from '../screens/rider/RiderDashboard';
 import RiderDelivery from '../screens/rider/DeliveryScreen';
+import RiderDashboard from '../screens/rider/RiderDashboard';
 
 // Common Screens
 import ChatScreen from '../screens/chat/ChatScreen';
 // Misc Screens
-import WalletScreen from '../screens/misc/WalletScreen';
-import PaymentMethodsScreen from '../screens/misc/PaymentMethodsScreen';
-import NotificationsScreen from '../screens/misc/NotificationsScreen';
 import HelpScreen from '../screens/misc/HelpScreen';
+import NotificationsScreen from '../screens/misc/NotificationsScreen';
+import PaymentMethodsScreen from '../screens/misc/PaymentMethodsScreen';
 import TermsScreen from '../screens/misc/TermsScreen';
+import WalletScreen from '../screens/misc/WalletScreen';
 import AddressPickerScreen from '../screens/user/AddressPickerScreen';
 
 const Stack = createStackNavigator();
@@ -140,11 +142,23 @@ const AppNavigator = () => {
           headerBackTitle: 'Back'
         }}
       />
+      {/* KYC and Restaurant Setup Flow */}
+      <Stack.Screen 
+        name="KYCStatus" 
+        component={KYCStatusScreen}
+        options={{
+          headerShown: true,
+          title: 'KYC Status',
+          headerBackTitle: 'Back'
+        }}
+      />
       <Stack.Screen 
         name="SetupRestaurant" 
         component={SetupRestaurantScreen}
         options={{
-          headerShown: false
+          headerShown: true,
+          title: 'Setup Restaurant',
+          headerBackTitle: 'Back'
         }}
       />
       

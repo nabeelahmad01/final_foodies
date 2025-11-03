@@ -12,7 +12,8 @@ import {
   View,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
+import { updateUser } from '../../redux/slices/authSlice';
 import { useToast } from '../../context.js/ToastContext';
 import api from '../../services/api';
 import colors from '../../styles/colors';
@@ -20,6 +21,7 @@ import { KYC_STATUS, USER_ROLES } from '../../utils/constants';
 import { handleApiError, showSuccess } from '../../utils/helpers';
 
 const KYCUploadScreen = ({ navigation, route }) => {
+  const dispatch = useDispatch();
   const { user: authUser } = useSelector(state => state.auth);
   const [user, setUser] = useState(authUser);
   const toast = useToast();
@@ -151,62 +153,164 @@ const KYCUploadScreen = ({ navigation, route }) => {
   };
 
   const uploadDocuments = async () => {
-    // Validate based on role
-    if (user?.role === USER_ROLES.RESTAURANT) {
-      if (!documents.idProof || !documents.businessLicense) {
-        toast.show('Please upload all required documents', 'error');
-        return;
-      }
-    } else if (user?.role === USER_ROLES.RIDER) {
-      if (!documents.idProof || !documents.drivingLicense) {
-        toast.show('Please upload all required documents', 'error');
-        return;
-      }
-    } else {
-      if (!documents.idProof) {
-        toast.show('Please upload ID proof', 'error');
-        return;
-      }
-    }
-
-    setIsLoading(true);
-
     try {
+      setIsLoading(true);
+      
+      // Get the token from AsyncStorage and validate it
+      let token = await AsyncStorage.getItem('userToken');
+      
+      // Clean up the token if it has Bearer prefix
+      if (token && token.startsWith('Bearer ')) {
+        token = token.replace('Bearer ', '').trim();
+        // Update the stored token to remove Bearer prefix
+        await AsyncStorage.setItem('userToken', token);
+      }
+      
+      if (!token) {
+        console.error('No authentication token found');
+        toast.show('Authentication failed. Please log in again.', 'error');
+        // Optionally redirect to login
+        // navigation.navigate('Login');
+        return;
+      }
+      
+      console.log('Using token for upload:', {
+        tokenStart: token.substring(0, 10) + '...',
+        tokenEnd: '...' + token.substring(token.length - 10),
+        length: token.length
+      });
+
+      // Validate based on role
+      if (user?.role === USER_ROLES.RESTAURANT) {
+        if (!documents.idProof || !documents.businessLicense) {
+          toast.show('Please upload all required documents', 'error');
+          return;
+        }
+      } else if (user?.role === USER_ROLES.RIDER) {
+        if (!documents.idProof || !documents.drivingLicense) {
+          toast.show('Please upload all required documents', 'error');
+          return;
+        }
+      } else {
+        if (!documents.idProof) {
+          toast.show('Please upload ID proof', 'error');
+          return;
+        }
+      }
+
+      setIsLoading(true);
+      
+      // Create form data with proper file objects
       const formData = new FormData();
 
       if (documents.idProof) {
+        const idProofUri = documents.idProof.uri;
+        const idProofName = idProofUri.split('/').pop();
+        const idProofType = idProofUri.endsWith('.png') ? 'image/png' : 'image/jpeg';
+        
         formData.append('documents', {
-          uri: documents.idProof.uri,
-          type: 'image/jpeg',
-          name: 'id_proof.jpg',
+          uri: idProofUri,
+          type: idProofType,
+          name: `id_proof_${Date.now()}.${idProofType.split('/')[1] || 'jpg'}`,
         });
       }
 
       if (documents.businessLicense) {
+        const businessLicenseUri = documents.businessLicense.uri;
+        const businessLicenseName = businessLicenseUri.split('/').pop();
+        const businessLicenseType = businessLicenseUri.endsWith('.png') ? 'image/png' : 'image/jpeg';
+        
         formData.append('documents', {
-          uri: documents.businessLicense.uri,
-          type: 'image/jpeg',
-          name: 'business_license.jpg',
+          uri: businessLicenseUri,
+          type: businessLicenseType,
+          name: `business_license_${Date.now()}.${businessLicenseType.split('/')[1] || 'jpg'}`,
         });
       }
 
       if (documents.drivingLicense) {
+        const drivingLicenseUri = documents.drivingLicense.uri;
+        const drivingLicenseName = drivingLicenseUri.split('/').pop();
+        const drivingLicenseType = drivingLicenseUri.endsWith('.png') ? 'image/png' : 'image/jpeg';
+        
         formData.append('documents', {
-          uri: documents.drivingLicense.uri,
-          type: 'image/jpeg',
-          name: 'driving_license.jpg',
+          uri: drivingLicenseUri,
+          type: drivingLicenseType,
+          name: `driving_license_${Date.now()}.${drivingLicenseType.split('/')[1] || 'jpg'}`,
         });
       }
 
-      await api.post('/auth/upload-kyc', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-
-      setIsLoading(false);
-      showSuccess(toast, 'KYC documents uploaded successfully');
-      navigation.goBack();
+      // Log form data for debugging
+      console.log('FormData prepared for upload');
+      
+      // Create a proper FormData object for file uploads
+      const formDataToSend = new FormData();
+      
+      // Helper function to append files to form data
+      const appendFileToFormData = (file, fieldName) => {
+        if (file && file.uri) {
+          const fileType = file.uri.endsWith('.png') ? 'image/png' : 'image/jpeg';
+          const fileName = file.uri.split('/').pop() || `${fieldName}_${Date.now()}.${fileType.split('/')[1] || 'jpg'}`;
+          
+          formDataToSend.append('documents', {
+            uri: file.uri,
+            type: fileType,
+            name: fileName,
+          });
+        }
+      };
+      
+      // Append all files
+      appendFileToFormData(documents.idProof, 'id_proof');
+      if (user?.role === USER_ROLES.RESTAURANT) {
+        appendFileToFormData(documents.businessLicense, 'business_license');
+      } else if (user?.role === USER_ROLES.RIDER) {
+        appendFileToFormData(documents.drivingLicense, 'driving_license');
+      }
+      
+      // Log the form data entries for debugging
+      console.log('FormData entries:', Object.fromEntries(formDataToSend._parts));
+      
+      // In development, use mock response
+      if (__DEV__) {
+        console.log('Using mock KYC upload in development');
+        // Simulate API delay
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Update KYC status in the user object
+        dispatch(updateUser({ kycStatus: 'pending_verification' }));
+        
+        // Show success message and navigate to KYC status screen
+        showSuccess(toast, 'KYC documents uploaded successfully');
+        navigation.replace('KYCStatus');
+      } else {
+        // Production code - make actual API request
+        try {
+          const response = await api.post('/auth/upload-kyc', formDataToSend, {
+            headers: {
+              'Content-Type': 'multipart/form-data',
+              'Authorization': `Bearer ${token}`,
+            },
+          });
+          
+          console.log('Upload successful:', response.data);
+          
+          // Update KYC status in the user object
+          if (response.data.kycStatus) {
+            dispatch(updateUser({ kycStatus: response.data.kycStatus }));
+          }
+          
+          // Show success message and navigate back
+          showSuccess(toast, response.data.message || 'KYC documents uploaded successfully');
+          navigation.goBack();
+        } catch (error) {
+          console.error('Upload failed:', error);
+          console.error('Error details:', error.response?.data || error.message);
+          toast.show(
+            error.response?.data?.message || 'Failed to upload documents. Please try again.',
+            'error'
+          );
+        }
+      }
     } catch (error) {
       setIsLoading(false);
       handleApiError(error, toast);
