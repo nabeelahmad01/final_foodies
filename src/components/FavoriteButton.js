@@ -1,12 +1,15 @@
 // Frontend - Favorite Button Component
 // src/components/FavoriteButton.js
 import React, { useState, useEffect } from 'react';
-import { TouchableOpacity, Alert } from 'react-native';
+import { TouchableOpacity } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import api from '../services/api';
 import colors from '../styles/colors';
+import { useToast } from '../context.js/ToastContext';
+import { handleApiError, showSuccess } from '../utils/helpers';
 
 const FavoriteButton = ({ restaurantId, size = 24, style }) => {
+  const toast = useToast();
   const [isFavorite, setIsFavorite] = useState(false);
 
   useEffect(() => {
@@ -27,14 +30,14 @@ const FavoriteButton = ({ restaurantId, size = 24, style }) => {
       if (isFavorite) {
         await api.delete(`/favorites/${restaurantId}`);
         setIsFavorite(false);
-        Alert.alert('Removed', 'Removed from favorites');
+        showSuccess(toast, 'Removed from favorites');
       } else {
         await api.post(`/favorites/${restaurantId}`);
         setIsFavorite(true);
-        Alert.alert('Added', 'Added to favorites');
+        showSuccess(toast, 'Added to favorites');
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to update favorites');
+      handleApiError(error, toast);
     }
   };
 

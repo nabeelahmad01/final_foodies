@@ -1,12 +1,11 @@
 // src/screens/user/CheckoutScreen.js (Expo Go Compatible)
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
@@ -16,35 +15,44 @@ import { clearCart } from '../../redux/slices/cartSlice';
 import api from '../../services/api';
 import colors from '../../styles/colors';
 import { PAYMENT_METHODS } from '../../utils/constants';
+import { useToast } from '../../context.js/ToastContext';
+import { handleApiError, showSuccess } from '../../utils/helpers';
+import { t, useLanguageRerender } from '../../utils/i18n';
+import PromoCodeInput from '../../components/PromoCodeInput';
+import ConfirmModal from '../../components/ConfirmModal';
 
-const CheckoutScreen = ({ navigation }) => {
+const CheckoutScreen = ({ navigation, route }) => {
+  useLanguageRerender();
   const dispatch = useDispatch();
+  const toast = useToast();
   const { items, totalAmount, restaurantId } = useSelector(state => state.cart);
   const [paymentMethod, setPaymentMethod] = useState(PAYMENT_METHODS.WALLET);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [selectedAddress, setSelectedAddress] = useState(route?.params?.selectedAddress || null);
+  const [promo, setPromo] = useState({ code: '', discount: 0 });
+  const [confirmWallet, setConfirmWallet] = useState(false);
 
   const deliveryFee = 100;
   const tax = Math.round(totalAmount * 0.1);
-  const grandTotal = totalAmount + deliveryFee + tax;
+  const discount = useMemo(() => Math.min(Math.round((totalAmount + deliveryFee + tax) * (promo.discount || 0)), 999999), [promo.discount, totalAmount, deliveryFee, tax]);
+  const grandTotal = Math.max(totalAmount + deliveryFee + tax - discount, 0);
 
   // NOTE: Stripe payment removed for Expo Go testing
   // In production build, add Stripe back
 
   const handlePayWithWallet = async () => {
-    Alert.alert(
-      'Pay with Wallet',
-      'Do you want to pay using your wallet balance?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Pay',
-          onPress: async () => {
-            setIsProcessing(true);
-            await createOrderInDB();
-          },
-        },
-      ],
-    );
+    setConfirmWallet(true);
+  };
+
+  const applyPromo = async (code) => {
+    // Simple demo: if code is FOOD10 -> 10% off
+    if (code.toUpperCase() === 'FOOD10') {
+      setPromo({ code, discount: 0.1 });
+      showSuccess(toast, t('checkout.promoApplied'));
+    } else {
+      setPromo({ code: '', discount: 0 });
+      toast.show(t('checkout.invalidPromo'), 'error');
+    }
   };
 
   const createOrderInDB = async () => {
@@ -58,7 +66,9 @@ const CheckoutScreen = ({ navigation }) => {
           price: item.price,
         })),
         totalAmount: grandTotal,
-        deliveryAddress: 'Home - Johar Town, Lahore', // Get from user
+        deliveryAddress: selectedAddress?.address || 'Home - Johar Town, Lahore',
+        deliveryCoords: selectedAddress?.coords || undefined,
+        promoCode: promo.code || undefined,
         paymentMethod,
       };
 
@@ -66,37 +76,21 @@ const CheckoutScreen = ({ navigation }) => {
 
       setIsProcessing(false);
       dispatch(clearCart());
-
-      Alert.alert('Order Placed! 🎉', 'Your order has been confirmed', [
-        {
-          text: 'Track Order',
-          onPress: () =>
-            navigation.replace('OrderTracking', { orderId: result._id }),
-        },
-      ]);
+      showSuccess(toast, t('checkout.orderPlaced'));
+      navigation.replace('OrderTracking', { orderId: result._id });
     } catch (error) {
       setIsProcessing(false);
-      Alert.alert('Error', error || 'Failed to place order');
+      handleApiError(error, toast);
     }
   };
 
   const handlePlaceOrder = () => {
     // For Expo Go testing, only wallet payment
     if (paymentMethod === PAYMENT_METHODS.CARD) {
-      Alert.alert(
-        'Stripe Not Available',
-        'Card payments require a custom development build. Please use wallet payment for testing in Expo Go.',
-        [
-          {
-            text: 'Use Wallet',
-            onPress: () => {
-              setPaymentMethod(PAYMENT_METHODS.WALLET);
-              handlePayWithWallet();
-            },
-          },
-          { text: 'Cancel', style: 'cancel' },
-        ],
-      );
+      // Replace Alert with toast per UX guidelines
+      toast.show(t('checkout.expoGoCardToast'), 'info');
+      setPaymentMethod(PAYMENT_METHODS.WALLET);
+      handlePayWithWallet();
     } else {
       handlePayWithWallet();
     }
@@ -112,14 +106,14 @@ const CheckoutScreen = ({ navigation }) => {
         >
           <Icon name="arrow-back" size={24} color={colors.white} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Checkout</Text>
+        <Text style={styles.headerTitle}>{t('checkout.title')}</Text>
         <View style={styles.placeholder} />
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Payment Method */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Payment Method</Text>
+          <Text style={styles.sectionTitle}>{t('checkout.paymentMethod')}</Text>
 
           <TouchableOpacity
             style={[
@@ -137,8 +131,8 @@ const CheckoutScreen = ({ navigation }) => {
                   : colors.gray
               }
             />
-            <Text style={styles.paymentLabel}>Credit / Debit Card</Text>
-            <Text style={styles.expoWarning}>(Not available in Expo Go)</Text>
+            <Text style={styles.paymentLabel}>{t('checkout.card')}</Text>
+            <Text style={styles.expoWarning}>{t('checkout.cardUnavailable')}</Text>
             <View style={styles.radioOuter}>
               {paymentMethod === PAYMENT_METHODS.CARD && (
                 <View style={styles.radioInner} />
@@ -162,8 +156,8 @@ const CheckoutScreen = ({ navigation }) => {
                   : colors.gray
               }
             />
-            <Text style={styles.paymentLabel}>Wallet</Text>
-            <Text style={styles.walletBalance}>(Rs. 5000)</Text>
+            <Text style={styles.paymentLabel}>{t('checkout.wallet')}</Text>
+            <Text style={styles.walletBalance}>{t('checkout.walletBalance')}</Text>
             <View style={styles.radioOuter}>
               {paymentMethod === PAYMENT_METHODS.WALLET && (
                 <View style={styles.radioInner} />
@@ -175,43 +169,57 @@ const CheckoutScreen = ({ navigation }) => {
         {/* Expo Go Notice */}
         <View style={styles.noticeCard}>
           <Icon name="information-circle" size={24} color={colors.warning} />
-          <Text style={styles.noticeText}>
-            You're using Expo Go. Card payments require a custom build. Use
-            wallet payment for testing.
-          </Text>
+          <Text style={styles.noticeText}>{t('checkout.notice')}</Text>
         </View>
 
-        {/* Order Summary */}
+        {/* Order Summary */
+        }
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Order Summary</Text>
+          <Text style={styles.sectionTitle}>{t('checkout.orderSummary')}</Text>
           <View style={styles.summaryCard}>
             <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Total Amount</Text>
+              <Text style={styles.summaryLabel}>{t('checkout.totalAmount')}</Text>
               <Text style={styles.summaryValue}>Rs. {grandTotal}</Text>
             </View>
             <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Estimated Time</Text>
+              <Text style={styles.summaryLabel}>{t('checkout.estimatedTime')}</Text>
               <Text style={styles.summaryValue}>30-40 mins</Text>
             </View>
             <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Items</Text>
+              <Text style={styles.summaryLabel}>{t('checkout.items')}</Text>
               <Text style={styles.summaryValue}>
                 {items.reduce((sum, item) => sum + item.quantity, 0)} items
               </Text>
             </View>
+            {!!promo.code && (
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Promo ({promo.code.toUpperCase()})</Text>
+                <Text style={styles.summaryValue}>- Rs. {discount}</Text>
+              </View>
+            )}
           </View>
         </View>
 
-        {/* Delivery Address */}
+        {/* Delivery Address */
+        }
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Delivery Address</Text>
+          <Text style={styles.sectionTitle}>{t('checkout.deliveryAddress')}</Text>
           <View style={styles.addressCard}>
             <Icon name="location" size={20} color={colors.primary} />
             <View style={styles.addressDetails}>
-              <Text style={styles.addressLabel}>Home</Text>
-              <Text style={styles.addressText}>Johar Town, Lahore</Text>
+              <Text style={styles.addressLabel}>{selectedAddress?.label || 'Home'}</Text>
+              <Text style={styles.addressText}>{selectedAddress?.address || 'Johar Town, Lahore'}</Text>
             </View>
+            <TouchableOpacity onPress={() => navigation.navigate('AddressPicker')}>
+              <Text style={{ color: colors.primary, fontWeight: '700' }}>{t('checkout.chooseOnMap')}</Text>
+            </TouchableOpacity>
           </View>
+        </View>
+
+        {/* Promo Code */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>{t('checkout.promoCode')}</Text>
+          <PromoCodeInput onApply={applyPromo} />
         </View>
       </ScrollView>
 
@@ -230,13 +238,26 @@ const CheckoutScreen = ({ navigation }) => {
           ) : (
             <>
               <Icon name="checkmark-circle" size={20} color={colors.white} />
-              <Text style={styles.buttonText}>
-                Place Order - Rs. {grandTotal}
-              </Text>
+              <Text style={styles.buttonText}>{`${t('checkout.placeOrderWith')} ${grandTotal}`}</Text>
             </>
           )}
         </TouchableOpacity>
       </View>
+
+      {/* Confirm Wallet Payment */}
+      <ConfirmModal
+        visible={confirmWallet}
+        title={t('checkout.payWithWalletTitle')}
+        message={t('checkout.payWithWalletMsg')}
+        confirmText={t('checkout.pay')}
+        cancelText={t('common.cancel')}
+        onCancel={() => setConfirmWallet(false)}
+        onConfirm={async () => {
+          setConfirmWallet(false);
+          setIsProcessing(true);
+          await createOrderInDB();
+        }}
+      />
     </View>
   );
 };

@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   ScrollView,
   Image,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { useSelector } from 'react-redux';
@@ -16,9 +15,12 @@ import * as ImagePicker from 'expo-image-picker';
 import api from '../../services/api';
 import colors from '../../styles/colors';
 import { USER_ROLES, KYC_STATUS } from '../../utils/constants';
+import { useToast } from '../../context.js/ToastContext';
+import { handleApiError, showSuccess } from '../../utils/helpers';
 
 const KYCUploadScreen = ({ navigation }) => {
   const { user } = useSelector(state => state.auth);
+  const toast = useToast();
   const [documents, setDocuments] = useState({
     idProof: null,
     businessLicense: null,
@@ -29,10 +31,7 @@ const KYCUploadScreen = ({ navigation }) => {
   const requestPermissions = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert(
-        'Permission Required',
-        'Please allow access to your photos to upload KYC documents',
-      );
+      toast.show('Please allow access to your photos to upload KYC documents', 'error');
       return false;
     }
     return true;
@@ -57,7 +56,7 @@ const KYCUploadScreen = ({ navigation }) => {
         });
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to pick image');
+      toast.show('Failed to pick image', 'error');
     }
   };
 
@@ -65,17 +64,17 @@ const KYCUploadScreen = ({ navigation }) => {
     // Validate based on role
     if (user.role === USER_ROLES.RESTAURANT) {
       if (!documents.idProof || !documents.businessLicense) {
-        Alert.alert('Error', 'Please upload all required documents');
+        toast.show('Please upload all required documents', 'error');
         return;
       }
     } else if (user.role === USER_ROLES.RIDER) {
       if (!documents.idProof || !documents.drivingLicense) {
-        Alert.alert('Error', 'Please upload all required documents');
+        toast.show('Please upload all required documents', 'error');
         return;
       }
     } else {
       if (!documents.idProof) {
-        Alert.alert('Error', 'Please upload ID proof');
+        toast.show('Please upload ID proof', 'error');
         return;
       }
     }
@@ -116,14 +115,11 @@ const KYCUploadScreen = ({ navigation }) => {
       });
 
       setIsLoading(false);
-      Alert.alert(
-        'Success',
-        'KYC documents uploaded successfully. Please wait for admin approval.',
-        [{ text: 'OK', onPress: () => navigation.goBack() }],
-      );
+      showSuccess(toast, 'KYC documents uploaded successfully');
+      navigation.goBack();
     } catch (error) {
       setIsLoading(false);
-      Alert.alert('Error', error.response?.data?.message || 'Upload failed');
+      handleApiError(error, toast);
     }
   };
 

@@ -6,77 +6,103 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
   Image,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { logout } from '../../redux/slices/authSlice';
 import colors from '../../styles/colors';
+import { useToast } from '../../context.js/ToastContext';
+import { handleApiError, showSuccess } from '../../utils/helpers';
+import authService from '../../services/authService';
+import { loadUser } from '../../redux/slices/authSlice';
+import LanguageSelector from '../../components/LanguageSelector';
+import { Modal, TextInput } from 'react-native';
+import { t } from '../../utils/i18n';
+import ConfirmModal from '../../components/ConfirmModal';
+import { useLanguageRerender } from '../../utils/i18n';
 
 const ProfileScreen = ({ navigation }) => {
+  useLanguageRerender();
   const dispatch = useDispatch();
   const { user } = useSelector(state => state.auth);
+  const toast = useToast();
+  const [showEditModal, setShowEditModal] = React.useState(false);
+  const [showLanguageModal, setShowLanguageModal] = React.useState(false);
+  const [editForm, setEditForm] = React.useState({ name: user?.name || '', phone: user?.phone || '' });
 
-  const handleLogout = () => {
-    Alert.alert('Logout', 'Are you sure you want to logout?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Logout',
-        style: 'destructive',
-        onPress: () => dispatch(logout()),
-      },
-    ]);
-  };
+  const [confirmLogout, setConfirmLogout] = React.useState(false);
+  const handleLogout = () => setConfirmLogout(true);
 
   const menuItems = [
     {
       icon: 'person-outline',
-      title: 'Edit Profile',
-      subtitle: 'Update your information',
-      onPress: () => Alert.alert('Coming Soon', 'Edit profile feature'),
+      title: t('profile.editProfile'),
+      subtitle: t('profile.editProfile'),
+      onPress: () => {
+        setEditForm({ name: user?.name || '', phone: user?.phone || '' });
+        setShowEditModal(true);
+      },
     },
     {
       icon: 'location-outline',
-      title: 'Saved Addresses',
-      subtitle: 'Manage delivery locations',
-      onPress: () => Alert.alert('Coming Soon', 'Addresses feature'),
+      title: t('profile.savedAddresses'),
+      subtitle: t('profile.savedAddresses'),
+      onPress: () => navigation.navigate('AddressManagement'),
     },
     {
       icon: 'wallet-outline',
-      title: 'Wallet',
+      title: t('profile.wallet'),
       subtitle: 'Rs. 500 balance',
-      onPress: () => Alert.alert('Coming Soon', 'Wallet feature'),
+      onPress: () => navigation.navigate('Wallet'),
     },
     {
       icon: 'card-outline',
-      title: 'Payment Methods',
-      subtitle: 'Manage cards and payments',
-      onPress: () => Alert.alert('Coming Soon', 'Payment methods feature'),
+      title: t('profile.paymentMethods'),
+      subtitle: t('profile.paymentMethods'),
+      onPress: () => navigation.navigate('PaymentMethods'),
     },
     {
       icon: 'notifications-outline',
-      title: 'Notifications',
-      subtitle: 'Configure alerts',
-      onPress: () => Alert.alert('Coming Soon', 'Notifications settings'),
+      title: t('profile.notifications'),
+      subtitle: t('profile.notifications'),
+      onPress: () => navigation.navigate('Notifications'),
     },
     {
       icon: 'help-circle-outline',
-      title: 'Help & Support',
-      subtitle: 'Get assistance',
-      onPress: () => Alert.alert('Coming Soon', 'Support feature'),
+      title: t('profile.helpSupport'),
+      subtitle: t('profile.helpSupport'),
+      onPress: () => navigation.navigate('Help'),
     },
     {
       icon: 'document-text-outline',
-      title: 'Terms & Conditions',
-      subtitle: 'Read our policies',
-      onPress: () => Alert.alert('Coming Soon', 'Terms feature'),
+      title: t('profile.termsConditions'),
+      subtitle: t('profile.termsConditions'),
+      onPress: () => navigation.navigate('Terms'),
     },
     {
       icon: 'shield-checkmark-outline',
-      title: 'KYC Verification',
+      title: t('profile.kyc'),
       subtitle: user?.kycStatus === 'approved' ? 'Verified' : 'Not verified',
       onPress: () => navigation.navigate('KYCUpload'),
+    },
+    {
+      icon: 'storefront-outline',
+      title: t('profile.becomeRestaurant'),
+      subtitle: t('profile.startSelling'),
+      onPress: () => navigation.navigate('KYCUpload'),
+    },
+    {
+      icon: 'bicycle-outline',
+      title: t('profile.becomeRider'),
+      subtitle: t('profile.deliverAndEarn'),
+      onPress: () => navigation.navigate('KYCUpload'),
+    },
+    {
+      icon: 'language-outline',
+      title: t('profile.language'),
+      subtitle: t('profile.language'),
+      onPress: () => setShowLanguageModal(true),
     },
   ];
 
@@ -84,7 +110,7 @@ const ProfileScreen = ({ navigation }) => {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Profile</Text>
+        <Text style={styles.headerTitle}>{t('profile.title')}</Text>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
@@ -143,12 +169,91 @@ const ProfileScreen = ({ navigation }) => {
         {/* Logout Button */}
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
           <Icon name="log-out-outline" size={24} color={colors.error} />
-          <Text style={styles.logoutText}>Logout</Text>
+          <Text style={styles.logoutText}>{t('auth.logout')}</Text>
         </TouchableOpacity>
 
         {/* App Version */}
         <Text style={styles.version}>Version 1.0.0</Text>
       </ScrollView>
+
+      {/* Edit Profile Modal */}
+      <Modal visible={showEditModal} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{t('profile.editProfile')}</Text>
+              <TouchableOpacity onPress={() => setShowEditModal(false)}>
+                <Icon name="close" size={22} color={colors.text.primary} />
+              </TouchableOpacity>
+            </View>
+            <TextInput
+              style={styles.input}
+              placeholder={t('profile.editProfile')}
+              value={editForm.name}
+              onChangeText={(t) => setEditForm({ ...editForm, name: t })}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Phone"
+              keyboardType="phone-pad"
+              value={editForm.phone}
+              onChangeText={(t) => setEditForm({ ...editForm, phone: t })}
+            />
+            <TouchableOpacity
+              style={styles.saveBtn}
+              onPress={async () => {
+                try {
+                  await authService.updateProfile(editForm);
+                  await dispatch(loadUser());
+                  showSuccess(toast, t('common.success'));
+                  setShowEditModal(false);
+                } catch (e) {
+                  handleApiError(e, toast);
+                }
+              }}
+            >
+              <Text style={styles.saveBtnText}>{t('common.save')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Language Modal */}
+      <Modal visible={showLanguageModal} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{t('profile.language')}</Text>
+              <TouchableOpacity onPress={() => setShowLanguageModal(false)}>
+                <Icon name="close" size={22} color={colors.text.primary} />
+              </TouchableOpacity>
+            </View>
+            <LanguageSelector onClose={() => setShowLanguageModal(false)} />
+          </View>
+        </View>
+      </Modal>
+
+      {/* Logout Confirm */}
+      <ConfirmModal
+        visible={confirmLogout}
+        title={t('auth.logout')}
+        message={t('auth.logout')}
+        confirmText={t('auth.logout')}
+        cancelText={t('common.cancel')}
+        onCancel={() => setConfirmLogout(false)}
+        onConfirm={() => {
+          setConfirmLogout(false);
+          dispatch(logout());
+          // Ensure we land on Login after logout
+          if (navigation?.reset) {
+            navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
+          } else if (navigation?.replace) {
+            navigation.replace('Login');
+          } else {
+            navigation.navigate('Login');
+          }
+        }}
+      />
     </View>
   );
 };
@@ -302,6 +407,44 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.text.secondary,
     marginBottom: 40,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  modalCard: {
+    backgroundColor: colors.white,
+    borderRadius: 16,
+    padding: 16,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.text.primary,
+  },
+  input: {
+    backgroundColor: colors.background,
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 12,
+  },
+  saveBtn: {
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    alignItems: 'center',
+    paddingVertical: 14,
+  },
+  saveBtnText: {
+    color: colors.white,
+    fontWeight: '700',
   },
 });
 

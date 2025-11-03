@@ -20,6 +20,8 @@ import io from 'socket.io-client';
 import api from '../../services/api';
 import { API_URL } from '../../utils/constants';
 import colors from '../../styles/colors';
+import { useToast } from '../../context.js/ToastContext';
+import { handleApiError } from '../../utils/helpers';
 
 const ChatScreen = ({ route, navigation }) => {
   const { orderId, receiverName } = route.params;
@@ -28,6 +30,7 @@ const ChatScreen = ({ route, navigation }) => {
   const [inputMessage, setInputMessage] = useState('');
   const [socket, setSocket] = useState(null);
   const flatListRef = useRef(null);
+  const toast = useToast();
 
   useEffect(() => {
     fetchMessages();
@@ -82,7 +85,7 @@ const ChatScreen = ({ route, navigation }) => {
       });
     } catch (error) {
       console.error('Failed to send message:', error);
-      Alert.alert('Error', 'Failed to send message');
+      handleApiError(error, toast);
     }
   };
 

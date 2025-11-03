@@ -7,7 +7,6 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
-  Alert,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -17,8 +16,11 @@ import {
   clearCart,
 } from '../../redux/slices/cartSlice';
 import colors from '../../styles/colors';
+import ConfirmModal from '../../components/ConfirmModal';
+import { t, useLanguageRerender } from '../../utils/i18n';
 
 const CartScreen = ({ navigation }) => {
+  useLanguageRerender();
   const dispatch = useDispatch();
   const { items, restaurantName, totalAmount } = useSelector(
     state => state.cart,
@@ -36,32 +38,24 @@ const CartScreen = ({ navigation }) => {
     dispatch(addToCart({ item, restaurant: { name: restaurantName } }));
   };
 
-  const handleClearCart = () => {
-    Alert.alert('Clear Cart', 'Are you sure you want to remove all items?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Yes',
-        style: 'destructive',
-        onPress: () => dispatch(clearCart()),
-      },
-    ]);
-  };
+  const [confirmClear, setConfirmClear] = React.useState(false);
+  const handleClearCart = () => setConfirmClear(true);
 
   if (items.length === 0) {
     return (
       <View style={styles.container}>
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Your Cart</Text>
+          <Text style={styles.headerTitle}>{t('cart.title')}</Text>
         </View>
         <View style={styles.emptyContainer}>
           <Icon name="cart-outline" size={100} color={colors.lightGray} />
-          <Text style={styles.emptyText}>Your cart is empty</Text>
-          <Text style={styles.emptySubtext}>Add items from restaurants</Text>
+          <Text style={styles.emptyText}>{t('cart.empty')}</Text>
+          <Text style={styles.emptySubtext}>{t('cart.addItems')}</Text>
           <TouchableOpacity
             style={styles.browseButton}
             onPress={() => navigation.navigate('MainTabs', { screen: 'Home' })}
           >
-            <Text style={styles.browseButtonText}>Browse Restaurants</Text>
+            <Text style={styles.browseButtonText}>{t('home.popularRestaurants')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -72,9 +66,9 @@ const CartScreen = ({ navigation }) => {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Your Cart</Text>
+        <Text style={styles.headerTitle}>{t('cart.title')}</Text>
         <TouchableOpacity onPress={handleClearCart}>
-          <Text style={styles.clearButton}>Clear</Text>
+          <Text style={styles.clearButton}>{t('common.delete')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -122,7 +116,7 @@ const CartScreen = ({ navigation }) => {
 
         {/* Delivery Address */}
         <View style={styles.addressContainer}>
-          <Text style={styles.sectionTitle}>Delivery Address</Text>
+          <Text style={styles.sectionTitle}>{t('profile.savedAddresses')}</Text>
           <View style={styles.addressCard}>
             <Icon name="location" size={20} color={colors.primary} />
             <View style={styles.addressDetails}>
@@ -137,25 +131,25 @@ const CartScreen = ({ navigation }) => {
 
         {/* Bill Summary */}
         <View style={styles.billContainer}>
-          <Text style={styles.sectionTitle}>Bill Summary</Text>
+          <Text style={styles.sectionTitle}>{t('cart.total')}</Text>
 
           <View style={styles.billRow}>
-            <Text style={styles.billLabel}>Item Total</Text>
+            <Text style={styles.billLabel}>{t('cart.subtotal')}</Text>
             <Text style={styles.billValue}>Rs. {totalAmount}</Text>
           </View>
 
           <View style={styles.billRow}>
-            <Text style={styles.billLabel}>Delivery Fee</Text>
+            <Text style={styles.billLabel}>{t('cart.deliveryFee')}</Text>
             <Text style={styles.billValue}>Rs. {deliveryFee}</Text>
           </View>
 
           <View style={styles.billRow}>
-            <Text style={styles.billLabel}>Tax</Text>
+            <Text style={styles.billLabel}>{t('cart.tax')}</Text>
             <Text style={styles.billValue}>Rs. {tax}</Text>
           </View>
 
           <View style={[styles.billRow, styles.totalRow]}>
-            <Text style={styles.totalLabel}>Total Amount</Text>
+            <Text style={styles.totalLabel}>{t('cart.total')}</Text>
             <Text style={styles.totalValue}>Rs. {grandTotal}</Text>
           </View>
         </View>
@@ -167,10 +161,24 @@ const CartScreen = ({ navigation }) => {
           style={styles.checkoutButton}
           onPress={() => navigation.navigate('Checkout')}
         >
-          <Text style={styles.checkoutText}>Proceed to Checkout</Text>
+          <Text style={styles.checkoutText}>{t('cart.checkout')}</Text>
           <Icon name="arrow-forward" size={20} color={colors.white} />
         </TouchableOpacity>
       </View>
+
+      {/* Confirm Clear Modal */}
+      <ConfirmModal
+        visible={confirmClear}
+        title={t('cart.clearTitle')}
+        message={t('cart.clearMsg')}
+        confirmText={t('common.yes')}
+        cancelText={t('common.cancel')}
+        onCancel={() => setConfirmClear(false)}
+        onConfirm={() => {
+          setConfirmClear(false);
+          dispatch(clearCart());
+        }}
+      />
     </View>
   );
 };

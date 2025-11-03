@@ -8,7 +8,6 @@ import {
   TouchableOpacity,
   TextInput,
   Modal,
-  Alert,
   Image,
   Switch,
   ActivityIndicator,
@@ -17,8 +16,12 @@ import * as ImagePicker from 'expo-image-picker';
 import Icon from 'react-native-vector-icons/Ionicons';
 import api from '../../services/api';
 import colors from '../../styles/colors';
+import { useToast } from '../../context.js/ToastContext';
+import { handleApiError, showSuccess } from '../../utils/helpers';
+import ConfirmModal from '../../components/ConfirmModal';
 
 const MenuManagement = ({ navigation, route }) => {
+  const toast = useToast();
   const { restaurantId } = route.params;
   const [menuItems, setMenuItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -33,6 +36,7 @@ const MenuManagement = ({ navigation, route }) => {
     image: null,
   });
   const [uploading, setUploading] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState({ visible: false, id: null });
 
   const categories = [
     'Appetizer',
@@ -53,7 +57,7 @@ const MenuManagement = ({ navigation, route }) => {
       setMenuItems(response.data.menuItems || []);
     } catch (error) {
       console.error('Failed to fetch menu items:', error);
-      Alert.alert('Error', 'Failed to load menu items');
+      handleApiError(error, toast);
     } finally {
       setLoading(false);
     }
@@ -62,7 +66,7 @@ const MenuManagement = ({ navigation, route }) => {
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission required', 'We need access to your photos');
+      toast.show('We need access to your photos', 'error');
       return;
     }
 
@@ -115,7 +119,7 @@ const MenuManagement = ({ navigation, route }) => {
 
   const handleSubmit = async () => {
     if (!formData.name || !formData.price) {
-      Alert.alert('Error', 'Please fill in all required fields');
+      toast.show('Please fill in all required fields', 'error');
       return;
     }
 
@@ -140,10 +144,10 @@ const MenuManagement = ({ navigation, route }) => {
           `/restaurants/${restaurantId}/menu/${editingItem._id}`,
           submitData,
         );
-        Alert.alert('Success', 'Menu item updated');
+        showSuccess(toast, 'Menu item updated');
       } else {
         await api.post(`/restaurants/${restaurantId}/menu`, submitData);
-        Alert.alert('Success', 'Menu item added');
+        showSuccess(toast, 'Menu item added');
       }
 
       setShowAddModal(false);
@@ -152,32 +156,14 @@ const MenuManagement = ({ navigation, route }) => {
       fetchMenuItems();
     } catch (error) {
       console.error('Submit error:', error);
-      Alert.alert(
-        'Error',
-        error.response?.data?.message || 'Failed to save menu item',
-      );
+      handleApiError(error, toast);
     } finally {
       setUploading(false);
     }
   };
 
   const handleDelete = itemId => {
-    Alert.alert('Delete Item', 'Are you sure you want to delete this item?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await api.delete(`/restaurants/${restaurantId}/menu/${itemId}`);
-            Alert.alert('Success', 'Item deleted');
-            fetchMenuItems();
-          } catch (error) {
-            Alert.alert('Error', 'Failed to delete item');
-          }
-        },
-      },
-    ]);
+    setConfirmDelete({ visible: true, id: itemId });
   };
 
   const handleEdit = item => {
@@ -407,6 +393,27 @@ const MenuManagement = ({ navigation, route }) => {
           </View>
         </View>
       </Modal>
+
+      {/* Confirm Delete */}
+      <ConfirmModal
+        visible={confirmDelete.visible}
+        title={'Delete Item'}
+        message={'Are you sure you want to delete this item?'}
+        confirmText={'Delete'}
+        cancelText={'Cancel'}
+        onCancel={() => setConfirmDelete({ visible: false, id: null })}
+        onConfirm={async () => {
+          const id = confirmDelete.id;
+          setConfirmDelete({ visible: false, id: null });
+          try {
+            await api.delete(`/restaurants/${restaurantId}/menu/${id}`);
+            showSuccess(toast, 'Item deleted');
+            fetchMenuItems();
+          } catch (error) {
+            handleApiError(error, toast);
+          }
+        }}
+      />
     </View>
   );
 };

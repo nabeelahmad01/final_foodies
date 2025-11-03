@@ -7,7 +7,6 @@ import {
   FlatList,
   TouchableOpacity,
   RefreshControl,
-  Alert,
 } from 'react-native';
 import { useSelector } from 'react-redux';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -15,13 +14,20 @@ import api from '../../services/api';
 import colors from '../../styles/colors';
 import { ORDER_STATUS, API_URL } from '../../utils/constants';
 import io from 'socket.io-client';
+import { useToast } from '../../context.js/ToastContext';
+import { handleApiError, showSuccess } from '../../utils/helpers';
+import ConfirmModal from '../../components/ConfirmModal';
+import { t, useLanguageRerender } from '../../utils/i18n';
 
 const OrdersScreen = ({ navigation }) => {
+  useLanguageRerender();
   const { user } = useSelector(state => state.auth);
+  const toast = useToast();
   const [orders, setOrders] = useState([]);
   const [filter, setFilter] = useState('all');
   const [refreshing, setRefreshing] = useState(false);
   const [restaurantId, setRestaurantId] = useState(null);
+  const [confirmReject, setConfirmReject] = useState({ visible: false, orderId: null });
 
   useEffect(() => {
     fetchRestaurant();
@@ -54,7 +60,7 @@ const OrdersScreen = ({ navigation }) => {
     socket.on('newOrder', data => {
       if (data.restaurantId === restaurantId) {
         fetchOrders();
-        Alert.alert('New Order! 🎉', 'You have a new order');
+        showSuccess(toast, 'New Order! 🎉');
       }
     });
 
@@ -67,6 +73,7 @@ const OrdersScreen = ({ navigation }) => {
       setOrders(response.data.orders);
     } catch (error) {
       console.error('Failed to fetch orders:', error);
+      handleApiError(error, toast);
     }
   };
 
@@ -79,41 +86,24 @@ const OrdersScreen = ({ navigation }) => {
   const handleAcceptOrder = async orderId => {
     try {
       await api.put(`/orders/${orderId}/accept`);
-      Alert.alert('Success', 'Order accepted');
+      showSuccess(toast, t('restaurantOrders.orderAccepted'));
       fetchOrders();
     } catch (error) {
-      Alert.alert('Error', 'Failed to accept order');
+      handleApiError(error, toast);
     }
   };
 
   const handleRejectOrder = async orderId => {
-    Alert.alert('Reject Order', 'Are you sure you want to reject this order?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Reject',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await api.put(`/orders/${orderId}/reject`, {
-              reason: 'Unable to fulfill order',
-            });
-            Alert.alert('Success', 'Order rejected');
-            fetchOrders();
-          } catch (error) {
-            Alert.alert('Error', 'Failed to reject order');
-          }
-        },
-      },
-    ]);
+    setConfirmReject({ visible: true, orderId });
   };
 
   const handleUpdateStatus = async (orderId, newStatus) => {
     try {
       await api.put(`/orders/${orderId}/status`, { status: newStatus });
-      Alert.alert('Success', 'Order status updated');
+      showSuccess(toast, t('restaurantOrders.statusUpdated'));
       fetchOrders();
     } catch (error) {
-      Alert.alert('Error', 'Failed to update status');
+      handleApiError(error, toast);
     }
   };
 
@@ -254,7 +244,7 @@ const OrdersScreen = ({ navigation }) => {
         >
           <Icon name="arrow-back" size={24} color={colors.white} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Orders</Text>
+        <Text style={styles.headerTitle}>{t('restaurantOrders.title')}</Text>
         <View style={styles.placeholder} />
       </View>
 
@@ -288,9 +278,30 @@ const OrdersScreen = ({ navigation }) => {
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Icon name="receipt-outline" size={80} color={colors.lightGray} />
-            <Text style={styles.emptyText}>No orders found</Text>
+            <Text style={styles.emptyText}>{t('restaurantOrders.noOrders')}</Text>
           </View>
         }
+      />
+
+      {/* Confirm Reject Modal */}
+      <ConfirmModal
+        visible={confirmReject.visible}
+        title={t('restaurantOrders.rejectTitle')}
+        message={t('restaurantOrders.rejectMsg')}
+        confirmText={t('restaurantOrders.reject')}
+        cancelText={t('common.cancel')}
+        onCancel={() => setConfirmReject({ visible: false, orderId: null })}
+        onConfirm={async () => {
+          const id = confirmReject.orderId;
+          setConfirmReject({ visible: false, orderId: null });
+          try {
+            await api.put(`/orders/${id}/reject`, { reason: 'Unable to fulfill order' });
+            showSuccess(toast, t('restaurantOrders.orderRejected'));
+            fetchOrders();
+          } catch (error) {
+            handleApiError(error, toast);
+          }
+        }}
       />
     </View>
   );

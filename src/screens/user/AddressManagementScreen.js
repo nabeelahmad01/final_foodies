@@ -5,10 +5,15 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, Modal, TextI
 import Icon from 'react-native-vector-icons/Ionicons';
 import api from '../../services/api';
 import colors from '../../styles/colors';
+import { useToast } from '../../context.js/ToastContext';
+import { handleApiError, showSuccess } from '../../utils/helpers';
+import ConfirmModal from '../../components/ConfirmModal';
 
 const AddressManagementScreen = ({ navigation }) => {
+  const toast = useToast();
   const [addresses, setAddresses] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [confirmState, setConfirmState] = useState({ visible: false, targetId: null });
   const [formData, setFormData] = useState({
     label: 'Home',
     address: '',
@@ -26,6 +31,7 @@ const AddressManagementScreen = ({ navigation }) => {
       setAddresses(response.data.addresses);
     } catch (error) {
       console.error('Failed to fetch addresses:', error);
+      handleApiError(error, toast);
     }
   };
 
@@ -35,35 +41,23 @@ const AddressManagementScreen = ({ navigation }) => {
       setShowAddModal(false);
       fetchAddresses();
       setFormData({ label: 'Home', address: '', city: 'Lahore', isDefault: false });
+      showSuccess(toast, 'Address added');
     } catch (error) {
-      Alert.alert('Error', 'Failed to add address');
+      handleApiError(error, toast);
     }
   };
 
   const handleDelete = (id) => {
-    Alert.alert('Delete Address', 'Are you sure?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await api.delete(`/addresses/${id}`);
-            fetchAddresses();
-          } catch (error) {
-            Alert.alert('Error', 'Failed to delete address');
-          }
-        },
-      },
-    ]);
+    setConfirmState({ visible: true, targetId: id });
   };
 
   const handleSetDefault = async (id) => {
     try {
       await api.put(`/addresses/${id}`, { isDefault: true });
       fetchAddresses();
+      showSuccess(toast, 'Default address updated');
     } catch (error) {
-      Alert.alert('Error', 'Failed to set default address');
+      handleApiError(error, toast);
     }
   };
 
@@ -162,6 +156,27 @@ const AddressManagementScreen = ({ navigation }) => {
           </View>
         </View>
       </Modal>
+
+      {/* Confirm Delete Modal */}
+      <ConfirmModal
+        visible={confirmState.visible}
+        title="Delete Address"
+        message="Are you sure you want to delete this address?"
+        confirmText="Delete"
+        cancelText="Cancel"
+        onCancel={() => setConfirmState({ visible: false, targetId: null })}
+        onConfirm={async () => {
+          const id = confirmState.targetId;
+          setConfirmState({ visible: false, targetId: null });
+          try {
+            await api.delete(`/addresses/${id}`);
+            fetchAddresses();
+            showSuccess(toast, 'Address deleted');
+          } catch (error) {
+            handleApiError(error, toast);
+          }
+        }}
+      />
     </View>
   );
 };

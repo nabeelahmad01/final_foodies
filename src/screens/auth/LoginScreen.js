@@ -10,15 +10,17 @@ import {
   ScrollView,
   Platform,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { login } from '../../redux/slices/authSlice';
 import colors from '../../styles/colors';
+import { useToast } from '../../context.js/ToastContext';
+import { handleApiError, showSuccess } from '../../utils/helpers';
 
 const LoginScreen = ({ navigation }) => {
   const dispatch = useDispatch();
+  const toast = useToast();
   const { isLoading, isAuthenticated, user } = useSelector(state => state.auth);
 
   useEffect(() => {
@@ -41,7 +43,7 @@ const LoginScreen = ({ navigation }) => {
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert('Error', 'Please fill in all fields');
+      toast.show('Please fill in all fields', 'error');
       return;
     }
 
@@ -51,6 +53,7 @@ const LoginScreen = ({ navigation }) => {
       
       if (user) {
         console.log('Login successful, user:', user);
+        showSuccess(toast, 'Login successful');
         // Track successful login
         try {
           if (typeof Analytics !== 'undefined' && Analytics) {
@@ -68,7 +71,7 @@ const LoginScreen = ({ navigation }) => {
         }
       }
     } catch (error) {
-      Alert.alert('Login Failed', error.message || 'An error occurred during login');
+      handleApiError(error, toast);
     }
   };
 

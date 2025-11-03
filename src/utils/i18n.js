@@ -1,4 +1,5 @@
 import { I18n } from 'i18n-js';
+import React from 'react';
 import * as Localization from 'expo-localization';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import en from '../translations/en.json';
@@ -52,6 +53,8 @@ export const changeLanguage = async language => {
   try {
     i18n.locale = language;
     await AsyncStorage.setItem('language', language);
+    // Notify subscribers
+    _notifyLanguageListeners();
   } catch (error) {
     console.error('Failed to save language:', error);
   }
@@ -63,3 +66,21 @@ export const t = (key, options = {}) => {
 };
 
 export default i18n;
+
+// --- Simple subscription model for language change ---
+const _listeners = new Set();
+const _notifyLanguageListeners = () => {
+  _listeners.forEach((fn) => {
+    try { fn(); } catch (_) {}
+  });
+};
+
+export const addLanguageListener = (fn) => {
+  _listeners.add(fn);
+  return () => _listeners.delete(fn);
+};
+
+export const useLanguageRerender = () => {
+  const [, setTick] = React.useState(0);
+  React.useEffect(() => addLanguageListener(() => setTick((x) => x + 1)), []);
+};

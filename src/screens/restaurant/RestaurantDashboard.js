@@ -13,13 +13,17 @@ import { useSelector } from 'react-redux';
 import Icon from 'react-native-vector-icons/Ionicons';
 import api from '../../services/api';
 import colors from '../../styles/colors';
+import ConfirmModal from '../../components/ConfirmModal';
+import { t, useLanguageRerender } from '../../utils/i18n';
 
 const RestaurantDashboard = ({ navigation }) => {
+  useLanguageRerender();
   const { user } = useSelector((state) => state.auth);
   const [restaurant, setRestaurant] = useState(null);
   const [stats, setStats] = useState(null);
   const [isOpen, setIsOpen] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [showKycPrompt, setShowKycPrompt] = useState(false);
 
   useEffect(() => {
     fetchDashboardData();
@@ -74,10 +78,28 @@ const RestaurantDashboard = ({ navigation }) => {
           </Text>
           <TouchableOpacity
             style={styles.setupButton}
-            onPress={() => navigation.navigate('SetupRestaurant')}
+            onPress={() => {
+              if (user?.kycStatus !== 'approved') {
+                setShowKycPrompt(true);
+              } else {
+                navigation.navigate('SetupRestaurant');
+              }
+            }}
           >
             <Text style={styles.setupButtonText}>Get Started</Text>
           </TouchableOpacity>
+          <ConfirmModal
+            visible={showKycPrompt}
+            title={t('rider.kycRequiredTitle')}
+            message={t('rider.kycRequiredMsg')}
+            confirmText={t('profile.kyc')}
+            cancelText={t('common.cancel')}
+            onCancel={() => setShowKycPrompt(false)}
+            onConfirm={() => {
+              setShowKycPrompt(false);
+              navigation.navigate('KYCUpload');
+            }}
+          />
         </View>
       </View>
     );
@@ -169,7 +191,7 @@ const RestaurantDashboard = ({ navigation }) => {
 
           <TouchableOpacity
             style={styles.actionCard}
-            onPress={() => navigation.navigate('MenuManagement')}
+            onPress={() => navigation.navigate('MenuManagement', { restaurantId: restaurant._id })}
           >
             <View style={styles.actionLeft}>
               <View style={[styles.actionIcon, { backgroundColor: colors.success + '20' }]}>

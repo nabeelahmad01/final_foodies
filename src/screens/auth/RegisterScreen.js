@@ -10,16 +10,18 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { register } from '../../redux/slices/authSlice';
 import { USER_ROLES } from '../../utils/constants';
 import colors from '../../styles/colors';
+import { useToast } from '../../context.js/ToastContext';
+import { handleApiError, showSuccess } from '../../utils/helpers';
 
 const RegisterScreen = ({ navigation }) => {
   const dispatch = useDispatch();
+  const toast = useToast();
   const { isLoading } = useSelector(state => state.auth);
 
   const [formData, setFormData] = useState({
@@ -40,17 +42,17 @@ const RegisterScreen = ({ navigation }) => {
     const { name, email, phone, password, confirmPassword, role } = formData;
 
     if (!name || !email || !phone || !password) {
-      Alert.alert('Error', 'Please fill in all fields');
+      toast.show('Please fill in all fields', 'error');
       return;
     }
 
     if (password !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match');
+      toast.show('Passwords do not match', 'error');
       return;
     }
 
     if (password.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters');
+      toast.show('Password must be at least 6 characters', 'error');
       return;
     }
 
@@ -59,17 +61,15 @@ const RegisterScreen = ({ navigation }) => {
       if (result.error) {
         // If there's an error, show the error message
         const errorMessage = result.error.message || 'Registration failed. Please try again.';
-        Alert.alert('Registration Failed', errorMessage);
+        toast.show(errorMessage, 'error');
       } else {
         // Success - navigation will be handled by AppNavigator based on authentication state
         console.log('Registration successful');
+        showSuccess(toast, 'Registration successful');
       }
     } catch (error) {
       console.error('Registration error:', error);
-      Alert.alert(
-        'Registration Failed', 
-        error.message || 'An unexpected error occurred. Please try again.'
-      );
+      handleApiError(error, toast);
     }
   };
 

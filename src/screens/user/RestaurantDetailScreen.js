@@ -7,7 +7,6 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
-  Alert,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -15,14 +14,21 @@ import { addToCart } from '../../redux/slices/cartSlice';
 import { fetchRestaurantById } from '../../redux/slices/restaurantSlice';
 import colors from '../../styles/colors';
 import Analytics from '../../services/analytics';
+import { useToast } from '../../context.js/ToastContext';
+import { showSuccess } from '../../utils/helpers';
+import ConfirmModal from '../../components/ConfirmModal';
+import { t, useLanguageRerender } from '../../utils/i18n';
 
 const RestaurantDetailScreen = ({ route, navigation }) => {
+  useLanguageRerender();
   const { restaurant } = route.params;
   const dispatch = useDispatch();
+  const toast = useToast();
   const { selectedRestaurant, isLoading } = useSelector(
     state => state.restaurant,
   );
   const { restaurantId } = useSelector(state => state.cart);
+  const [confirmReplace, setConfirmReplace] = React.useState({ visible: false, item: null });
 
   useEffect(() => {
     dispatch(fetchRestaurantById(restaurant._id));
@@ -39,25 +45,11 @@ useEffect(() => {
   const handleAddToCart = item => {
     // Check if adding from different restaurant
     Analytics.logAddToCart(item);
-    dispatch(addToCart({ item, restaurant }));
     if (restaurantId && restaurantId !== restaurant._id) {
-      Alert.alert(
-        'Replace cart items?',
-        'Your cart contains items from another restaurant. Do you want to discard them?',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Yes',
-            onPress: () => {
-              dispatch(addToCart({ item, restaurant }));
-              Alert.alert('Success', 'Item added to cart!');
-            },
-          },
-        ],
-      );
+      setConfirmReplace({ visible: true, item });
     } else {
       dispatch(addToCart({ item, restaurant }));
-      Alert.alert('Success', 'Item added to cart!');
+      showSuccess(toast, t('cart.itemAdded'));
     }
   };
 
@@ -118,7 +110,7 @@ useEffect(() => {
 
         {/* Menu Section */}
         <View style={styles.menuSection}>
-          <Text style={styles.menuTitle}>Menu</Text>
+          <Text style={styles.menuTitle}>{t('restaurant.menu')}</Text>
 
           {menuItems.map(item => (
             <View key={item._id} style={styles.menuItem}>
@@ -150,6 +142,20 @@ useEffect(() => {
           ))}
         </View>
       </ScrollView>
+      <ConfirmModal
+        visible={confirmReplace.visible}
+        title={t('restaurantDetail.replaceTitle')}
+        message={t('restaurantDetail.replaceMsg')}
+        confirmText={t('common.yes')}
+        cancelText={t('common.cancel')}
+        onCancel={() => setConfirmReplace({ visible: false, item: null })}
+        onConfirm={() => {
+          const item = confirmReplace.item;
+          setConfirmReplace({ visible: false, item: null });
+          dispatch(addToCart({ item, restaurant }));
+          showSuccess(toast, t('cart.itemAdded'));
+        }}
+      />
     </View>
   );
 };

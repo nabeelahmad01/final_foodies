@@ -2,6 +2,8 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../utils/constants';
+import { router } from 'expo-router';
+import { showGlobalToast } from '../context.js/ToastContext';
 
 const api = axios.create({
   baseURL: API_URL,
@@ -30,9 +32,15 @@ api.interceptors.response.use(
   response => response,
   async error => {
     if (error.response?.status === 401) {
-      // Token expired, logout user
-      await AsyncStorage.removeItem('userToken');
-      // Navigate to login (implement navigation ref)
+      try {
+        await AsyncStorage.removeItem('userToken');
+      } catch {}
+      try {
+        showGlobalToast('Session expired. Please log in again', 'error');
+      } catch {}
+      try {
+        router.replace('/');
+      } catch {}
     }
     return Promise.reject(error);
   },

@@ -9,7 +9,8 @@
     "delete": "حذف کریں",
     "edit": "ترمیم کریں",
     "search": "تلاش کریں",
-    "filter": "فلٹر"
+    "filter": "فلٹر",
+    "yes": "ہاں"
   },
   "auth": {
     "login": "لاگ ان",
@@ -39,7 +40,9 @@
     "tax": "ٹیکس",
     "total": "کل",
     "checkout": "چیک آؤٹ",
-    "itemAdded": "چیز ٹوکری میں شامل ہو گئی"
+    "itemAdded": "چیز ٹوکری میں شامل ہو گئی",
+    "clearTitle": "ٹوکر ی صاف کریں",
+    "clearMsg": "کیا آپ واقعی تمام اشیاء ہٹانا چاہتے ہیں؟"
   },
   "orders": {
     "title": "میرے آرڈرز",
@@ -62,14 +65,80 @@
     "darkMode": "ڈارک موڈ",
     "helpSupport": "مدد اور سپورٹ",
     "termsConditions": "شرائط و ضوابط",
-    "privacyPolicy": "رازداری کی پالیسی"
+    "privacyPolicy": "رازداری کی پالیسی",
+    "kyc": "کے وائی سی توثیق",
+    "becomeRestaurant": "ریستوران بنیں",
+    "becomeRider": "رائیڈر بنیں",
+    "startSelling": "کھانا بیچنا شروع کریں",
+    "deliverAndEarn": "ڈیلیور کریں اور کمائیں",
+    "earningsPayouts": "آمدنی اور ادائیگیاں",
+    "myDeliveries": "میری ڈیلیوریز",
+    "myProfile": "میری پروفائل"
+  },
+  "rider": {
+    "dashboard": "رائیڈر ڈیش بورڈ",
+    "welcome": "خوش آمدید",
+    "status": "اسٹیٹس",
+    "online": "آن لائن - آرڈرز کے لیے تیار",
+    "offline": "آف لائن",
+    "availableDeliveries": "دستیاب ڈیلیوریز",
+    "noAvailable": "کوئی دستیاب ڈیلیوری نہیں",
+    "notifyOnNew": "نئے آرڈرز آنے پر اطلاع دی جائے گی",
+    "quickActions": "فوری اعمال",
+    "acceptDeliveryTitle": "ڈیلیوری قبول کریں",
+    "acceptDeliveryMsg": "کیا آپ یہ ڈیلیوری قبول کرنا چاہتے ہیں؟",
+    "accept": "قبول کریں",
+    "kycRequiredTitle": "کے وائی سی درکار",
+    "kycRequiredMsg": "آن لائن جانے کے لیے کے وائی سی مکمل کریں",
+    "completeKyc": "کے وائی سی مکمل کریں"
+  },
+  "restaurantOrders": {
+    "title": "آرڈرز",
+    "noOrders": "کوئی آرڈر نہیں ملا",
+    "rejectTitle": "آرڈر مسترد کریں",
+    "rejectMsg": "کیا آپ واقعی اس آرڈر کو مسترد کرنا چاہتے ہیں؟",
+    "reject": "مسترد کریں",
+    "accept": "قبول کریں",
+    "startPreparing": "تیاری شروع کریں",
+    "markReady": "تیار نشان لگائیں",
+    "orderAccepted": "آرڈر قبول ہو گیا",
+    "orderRejected": "آرڈر مسترد ہو گیا",
+    "statusUpdated": "آرڈر اسٹیٹس اپ ڈیٹ ہو گیا"
+  },
+  "restaurantDetail": {
+    "replaceTitle": "کیا ٹوکری کی چیزیں بدلیں؟",
+    "replaceMsg": "آپ کی ٹوکری میں دوسرے ریستوران کی چیزیں ہیں۔ کیا آپ انہیں ختم کر کے آگے بڑھنا چاہتے ہیں؟"
+  },
+  "checkout": {
+    "title": "چیک آؤٹ",
+    "paymentMethod": "ادائیگی کا طریقہ",
+    "card": "کریڈٹ / ڈیبٹ کارڈ",
+    "cardUnavailable": "(ایکسپو گو میں دستیاب نہیں)",
+    "wallet": "والیٹ",
+    "walletBalance": "(روپے 5000)",
+    "notice": "آپ ایکسپو گو استعمال کر رہے ہیں۔ کارڈ ادائیگی کے لیے کسٹم بلڈ درکار ہے۔ ٹیسٹنگ کے لیے والیٹ استعمال کریں۔",
+    "orderSummary": "آرڈر خلاصہ",
+    "totalAmount": "کل رقم",
+    "estimatedTime": "متوقع وقت",
+    "items": "آئٹمز",
+    "deliveryAddress": "ترسیلی پتہ",
+    "chooseOnMap": "نقشے پر منتخب کریں",
+    "promoCode": "پرومو کوڈ",
+    "placeOrder": "آرڈر کریں",
+    "placeOrderWith": "آرڈر کریں - روپے",
+    "payWithWalletTitle": "والیٹ سے ادائیگی",
+    "payWithWalletMsg": "کیا آپ والیٹ بیلنس سے ادائیگی کرنا چاہتے ہیں؟",
+    "pay": "ادائیگی کریں",
+    "promoApplied": "پرومو لاگو: 10% کم",
+    "invalidPromo": "غلط پرومو کوڈ",
+    "orderPlaced": "آرڈر مکمل! ",
+    "expoGoCardToast": "ایکسپو گو میں کارڈ دستیاب نہیں۔ والیٹ منتخب کیا جا رہا ہے۔"
   },
   "restaurant": {
     "menu": "مینو",
     "rating": "درجہ بندی",
     "reviews": "جائزے",
     "deliveryTime": "ڈیلیوری کا وقت",
-    "minOrder": "کم سے کم آرڈر",
     "addToCart": "ٹوکری میں شامل کریں"
   }
 }

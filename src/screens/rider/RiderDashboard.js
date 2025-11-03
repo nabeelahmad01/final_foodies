@@ -8,12 +8,13 @@ import {
   TouchableOpacity,
   RefreshControl,
   Switch,
-  Alert,
 } from 'react-native';
+
 import { useSelector } from 'react-redux';
 import Icon from 'react-native-vector-icons/Ionicons';
 import api from '../../services/api';
 import colors from '../../styles/colors';
+import ConfirmModal from '../../components/ConfirmModal';
 
 const RiderDashboard = ({ navigation }) => {
   const { user } = useSelector((state) => state.auth);
@@ -26,6 +27,8 @@ const RiderDashboard = ({ navigation }) => {
   });
   const [availableOrders, setAvailableOrders] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [confirmKyc, setConfirmKyc] = useState(false);
+  const [confirmAccept, setConfirmAccept] = useState({ visible: false, orderId: null });
 
   useEffect(() => {
     fetchDashboardData();
@@ -68,17 +71,7 @@ const RiderDashboard = ({ navigation }) => {
   const toggleOnlineStatus = () => {
     if (!isOnline) {
       if (user.kycStatus !== 'approved') {
-        Alert.alert(
-          'KYC Required',
-          'Please complete KYC verification to go online',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            {
-              text: 'Complete KYC',
-              onPress: () => navigation.navigate('KYCUpload'),
-            },
-          ]
-        );
+        setConfirmKyc(true);
         return;
       }
     }
@@ -86,17 +79,7 @@ const RiderDashboard = ({ navigation }) => {
   };
 
   const handleAcceptOrder = (orderId) => {
-    Alert.alert(
-      'Accept Delivery',
-      'Do you want to accept this delivery?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Accept',
-          onPress: () => navigation.navigate('DeliveryScreen', { orderId }),
-        },
-      ]
-    );
+    setConfirmAccept({ visible: true, orderId });
   };
 
   return (
@@ -267,6 +250,35 @@ const RiderDashboard = ({ navigation }) => {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Confirm KYC Modal */}
+      <ConfirmModal
+        visible={confirmKyc}
+        title="KYC Required"
+        message="Please complete KYC verification to go online"
+        confirmText="Complete KYC"
+        cancelText="Cancel"
+        onCancel={() => setConfirmKyc(false)}
+        onConfirm={() => {
+          setConfirmKyc(false);
+          navigation.navigate('KYCUpload');
+        }}
+      />
+
+      {/* Accept Delivery Modal */}
+      <ConfirmModal
+        visible={confirmAccept.visible}
+        title="Accept Delivery"
+        message="Do you want to accept this delivery?"
+        confirmText="Accept"
+        cancelText="Cancel"
+        onCancel={() => setConfirmAccept({ visible: false, orderId: null })}
+        onConfirm={() => {
+          const id = confirmAccept.orderId;
+          setConfirmAccept({ visible: false, orderId: null });
+          navigation.navigate('RiderDelivery', { orderId: id });
+        }}
+      />
     </View>
   );
 };

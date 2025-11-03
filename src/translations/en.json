@@ -9,7 +9,8 @@
     "delete": "Delete",
     "edit": "Edit",
     "search": "Search",
-    "filter": "Filter"
+    "filter": "Filter",
+    "yes": "Yes"
   },
   "auth": {
     "login": "Login",
@@ -39,7 +40,9 @@
     "tax": "Tax",
     "total": "Total",
     "checkout": "Checkout",
-    "itemAdded": "Item added to cart"
+    "itemAdded": "Item added to cart",
+    "clearTitle": "Clear Cart",
+    "clearMsg": "Are you sure you want to remove all items?"
   },
   "orders": {
     "title": "My Orders",
@@ -62,7 +65,49 @@
     "darkMode": "Dark Mode",
     "helpSupport": "Help & Support",
     "termsConditions": "Terms & Conditions",
-    "privacyPolicy": "Privacy Policy"
+    "privacyPolicy": "Privacy Policy",
+    "kyc": "KYC Verification",
+    "becomeRestaurant": "Become a Restaurant",
+    "becomeRider": "Become a Rider",
+    "startSelling": "Start selling food",
+    "deliverAndEarn": "Deliver and earn",
+    "earningsPayouts": "Earnings & Payouts",
+    "myDeliveries": "My Deliveries",
+    "myProfile": "My Profile"
+  },
+  "rider": {
+    "dashboard": "Rider Dashboard",
+    "welcome": "Welcome",
+    "status": "Status",
+    "online": "Online - Ready for Orders",
+    "offline": "Offline",
+    "availableDeliveries": "Available Deliveries",
+    "noAvailable": "No available deliveries",
+    "notifyOnNew": "You'll be notified when new orders arrive",
+    "quickActions": "Quick Actions",
+    "acceptDeliveryTitle": "Accept Delivery",
+    "acceptDeliveryMsg": "Do you want to accept this delivery?",
+    "accept": "Accept",
+    "kycRequiredTitle": "KYC Required",
+    "kycRequiredMsg": "Please complete KYC verification to go online",
+    "completeKyc": "Complete KYC"
+  },
+  "restaurantOrders": {
+    "title": "Orders",
+    "noOrders": "No orders found",
+    "rejectTitle": "Reject Order",
+    "rejectMsg": "Are you sure you want to reject this order?",
+    "reject": "Reject",
+    "accept": "Accept",
+    "startPreparing": "Start Preparing",
+    "markReady": "Mark Ready",
+    "orderAccepted": "Order accepted",
+    "orderRejected": "Order rejected",
+    "statusUpdated": "Order status updated"
+  },
+  "restaurantDetail": {
+    "replaceTitle": "Replace cart items?",
+    "replaceMsg": "Your cart contains items from another restaurant. Do you want to discard them?"
   },
   "restaurant": {
     "menu": "Menu",
@@ -71,5 +116,30 @@
     "deliveryTime": "Delivery Time",
     "minOrder": "Min Order",
     "addToCart": "Add to Cart"
+  },
+  "checkout": {
+    "title": "Checkout",
+    "paymentMethod": "Payment Method",
+    "card": "Credit / Debit Card",
+    "cardUnavailable": "(Not available in Expo Go)",
+    "wallet": "Wallet",
+    "walletBalance": "(Rs. 5000)",
+    "notice": "You're using Expo Go. Card payments require a custom build. Use wallet payment for testing.",
+    "orderSummary": "Order Summary",
+    "totalAmount": "Total Amount",
+    "estimatedTime": "Estimated Time",
+    "items": "Items",
+    "deliveryAddress": "Delivery Address",
+    "chooseOnMap": "Choose on Map",
+    "promoCode": "Promo Code",
+    "placeOrder": "Place Order",
+    "placeOrderWith": "Place Order - Rs.",
+    "payWithWalletTitle": "Pay with Wallet",
+    "payWithWalletMsg": "Do you want to pay using your wallet balance?",
+    "pay": "Pay",
+    "promoApplied": "Promo applied: 10% off",
+    "invalidPromo": "Invalid promo code",
+    "orderPlaced": "Order placed! ",
+    "expoGoCardToast": "Card not available in Expo Go. Switching to Wallet."
   }
 }

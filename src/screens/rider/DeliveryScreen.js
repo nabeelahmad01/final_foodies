@@ -5,7 +5,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Alert,
   Linking,
   ActivityIndicator,
   ScrollView,
@@ -25,8 +24,11 @@ if (Platform.OS !== 'web') {
 import api from '../../services/api';
 import colors from '../../styles/colors';
 import { ORDER_STATUS } from '../../utils/constants';
+import { useToast } from '../../context.js/ToastContext';
+import { handleApiError, showSuccess } from '../../utils/helpers';
 
 const DeliveryScreen = ({ route, navigation }) => {
+  const toast = useToast();
   const { orderId } = route.params;
   const [order, setOrder] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -48,7 +50,7 @@ const DeliveryScreen = ({ route, navigation }) => {
 
       setIsLoading(false);
     } catch (error) {
-      Alert.alert('Error', 'Failed to fetch order details');
+      handleApiError(error, toast);
       navigation.goBack();
     }
   };
@@ -65,7 +67,7 @@ const DeliveryScreen = ({ route, navigation }) => {
     if (order?.restaurantId?.phone) {
       Linking.openURL(`tel:${order.restaurantId.phone}`);
     } else {
-      Alert.alert('Error', 'Restaurant phone number not available');
+      toast.show('Restaurant phone number not available', 'error');
     }
   };
 
@@ -73,19 +75,19 @@ const DeliveryScreen = ({ route, navigation }) => {
     if (order?.userId?.phone) {
       Linking.openURL(`tel:${order.userId.phone}`);
     } else {
-      Alert.alert('Error', 'Customer phone number not available');
+      toast.show('Customer phone number not available', 'error');
     }
   };
 
   const handleNavigate = destination => {
     const url = `https://www.google.com/maps/dir/?api=1&destination=${destination}`;
     Linking.openURL(url).catch(() => {
-      Alert.alert('Error', 'Could not open maps');
+      toast.show('Could not open maps', 'error');
     });
   };
 
   const handlePickedUp = async () => {
-    Alert.alert(
+    import('react-native').then(({ Alert }) => Alert.alert(
       'Confirm Pickup',
       'Have you picked up the order from the restaurant?',
       [
@@ -98,19 +100,19 @@ const DeliveryScreen = ({ route, navigation }) => {
                 status: ORDER_STATUS.OUT_FOR_DELIVERY,
               });
               setCurrentStep('delivering');
-              Alert.alert('Success', 'Order marked as picked up');
+              showSuccess(toast, 'Order marked as picked up');
               fetchOrderDetails();
             } catch (error) {
-              Alert.alert('Error', 'Failed to update status');
+              handleApiError(error, toast);
             }
           },
         },
       ],
-    );
+    ));
   };
 
   const handleDelivered = async () => {
-    Alert.alert(
+    import('react-native').then(({ Alert }) => Alert.alert(
       'Confirm Delivery',
       'Have you delivered the order to the customer?',
       [
@@ -120,23 +122,15 @@ const DeliveryScreen = ({ route, navigation }) => {
           onPress: async () => {
             try {
               await api.put(`/orders/${orderId}/complete-delivery`);
-              Alert.alert(
-                'Delivery Completed! 🎉',
-                'Great job! Your earnings have been updated.',
-                [
-                  {
-                    text: 'OK',
-                    onPress: () => navigation.navigate('RiderDashboard'),
-                  },
-                ],
-              );
+              showSuccess(toast, 'Delivery completed! 🎉');
+              navigation.navigate('RiderDashboard');
             } catch (error) {
-              Alert.alert('Error', 'Failed to complete delivery');
+              handleApiError(error, toast);
             }
           },
         },
       ],
-    );
+    ));
   };
 
   if (isLoading) {

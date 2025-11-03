@@ -2,7 +2,7 @@
 import React, { useEffect } from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 import { useDispatch, useSelector } from 'react-redux';
-import { loadUser } from '../redux/slices/authSlice';
+import { loadUser, logout } from '../redux/slices/authSlice';
 
 // Auth Screens
 import LoginScreen from '../screens/auth/LoginScreen';
@@ -21,6 +21,7 @@ import ProfileScreen from '../screens/user/ProfileScreen';
 import RestaurantDashboard from '../screens/restaurant/RestaurantDashboard';
 import RestaurantMenuManagement from '../screens/restaurant/MenuManagement';
 import RestaurantOrders from '../screens/restaurant/OrdersScreen';
+import SetupRestaurantScreen from '../screens/restaurant/SetupRestaurantScreen';
 
 // Rider Screens
 import RiderDashboard from '../screens/rider/RiderDashboard';
@@ -28,6 +29,13 @@ import RiderDelivery from '../screens/rider/DeliveryScreen';
 
 // Common Screens
 import ChatScreen from '../screens/chat/ChatScreen';
+// Misc Screens
+import WalletScreen from '../screens/misc/WalletScreen';
+import PaymentMethodsScreen from '../screens/misc/PaymentMethodsScreen';
+import NotificationsScreen from '../screens/misc/NotificationsScreen';
+import HelpScreen from '../screens/misc/HelpScreen';
+import TermsScreen from '../screens/misc/TermsScreen';
+import AddressPickerScreen from '../screens/user/AddressPickerScreen';
 
 const Stack = createStackNavigator();
 
@@ -81,6 +89,40 @@ const AppNavigator = () => {
         }}
       />
       <Stack.Screen 
+        name="AddressPicker" 
+        component={AddressPickerScreen}
+        options={{
+          headerShown: true,
+          title: 'Select Address on Map',
+          headerBackTitle: 'Back'
+        }}
+      />
+      <Stack.Screen 
+        name="Wallet" 
+        component={WalletScreen}
+        options={{ headerShown: true, title: 'Wallet', headerBackTitle: 'Back' }}
+      />
+      <Stack.Screen 
+        name="PaymentMethods" 
+        component={PaymentMethodsScreen}
+        options={{ headerShown: true, title: 'Payment Methods', headerBackTitle: 'Back' }}
+      />
+      <Stack.Screen 
+        name="Notifications" 
+        component={NotificationsScreen}
+        options={{ headerShown: true, title: 'Notifications', headerBackTitle: 'Back' }}
+      />
+      <Stack.Screen 
+        name="Help" 
+        component={HelpScreen}
+        options={{ headerShown: true, title: 'Help & Support', headerBackTitle: 'Back' }}
+      />
+      <Stack.Screen 
+        name="Terms" 
+        component={TermsScreen}
+        options={{ headerShown: true, title: 'Terms & Conditions', headerBackTitle: 'Back' }}
+      />
+      <Stack.Screen 
         name="RiderDelivery" 
         component={RiderDelivery}
         options={{
@@ -96,6 +138,13 @@ const AppNavigator = () => {
           headerShown: true,
           title: 'Restaurant Dashboard',
           headerBackTitle: 'Back'
+        }}
+      />
+      <Stack.Screen 
+        name="SetupRestaurant" 
+        component={SetupRestaurantScreen}
+        options={{
+          headerShown: false
         }}
       />
       
