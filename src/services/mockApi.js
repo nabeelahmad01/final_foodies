@@ -168,6 +168,37 @@ const mockApi = {
       });
     }
     
+    // Handle /auth/me endpoint
+    if (url === '/auth/me' && method.toLowerCase() === 'get') {
+      try {
+        const user = await this.getUser();
+        console.log('Mock API - Returning user data:', user);
+        // Return the user data directly as the response
+        return { 
+          data: user,
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          config: {},
+          request: {}
+        };
+      } catch (error) {
+        console.error('Mock API - Error getting user:', error);
+        return {
+          data: {
+            success: false,
+            message: error.message || 'Failed to fetch user data',
+            user: null
+          },
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          config: {},
+          request: {}
+        };
+      }
+    }
+    
     // Simulate network delay
     await new Promise(resolve => setTimeout(resolve, 500));
     

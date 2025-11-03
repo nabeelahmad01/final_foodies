@@ -5,6 +5,9 @@ import { API_URL } from '../utils/constants';
 import { router } from 'expo-router';
 import { showGlobalToast } from '../context.js/ToastContext';
 
+// Check if we're in development mode
+const isDevelopment = process.env.NODE_ENV === 'development';
+
 const api = axios.create({
   baseURL: API_URL,
   timeout: 10000,
@@ -13,28 +16,58 @@ const api = axios.create({
   },
 });
 
-// Request interceptor - Add token to headers
+// Request interceptor - Add token to headers and handle mock API
 api.interceptors.request.use(
   async config => {
     try {
+      // In development, use mock data for specific endpoints
+      if (isDevelopment && config.url === '/auth/me') {
+        console.log('Using mock data for /auth/me in development');
+        // Create a mock response
+        const mockResponse = {
+          data: {
+            id: 'mock-user-id',
+            _id: 'mock-user-id',
+            email: 'admin786@gmail.com',
+            name: 'Rizwan',
+            phone: '031807371071',
+            role: 'restaurant',
+            kycStatus: 'pending',
+            isEmailVerified: true,
+            isPhoneVerified: true,
+            createdAt: new Date().toISOString()
+          },
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          config: { ...config, __isRetryRequest: true },
+          request: {}
+        };
+        
+        // Return a resolved promise with the mock response
+        return Promise.resolve(mockResponse);
+      }
+
+      // For non-mock requests, add the token
       const token = await AsyncStorage.getItem('userToken');
       if (token) {
-        // Ensure the token is properly formatted
         const formattedToken = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
         config.headers.Authorization = formattedToken;
         console.log('Adding token to request:', formattedToken.substring(0, 20) + '...');
       } else {
         console.log('No token found in AsyncStorage');
       }
+      
+      return config;
     } catch (error) {
-      console.error('Error getting token:', error);
+      console.error('Request interceptor error:', error);
+      return Promise.reject(error);
     }
-    return config;
   },
   error => {
     console.error('Request interceptor error:', error);
     return Promise.reject(error);
-  },
+  }
 );
 
 // Response interceptor - Handle errors
