@@ -16,13 +16,23 @@ const api = axios.create({
 // Request interceptor - Add token to headers
 api.interceptors.request.use(
   async config => {
-    const token = await AsyncStorage.getItem('userToken');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    try {
+      const token = await AsyncStorage.getItem('userToken');
+      if (token) {
+        // Ensure the token is properly formatted
+        const formattedToken = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+        config.headers.Authorization = formattedToken;
+        console.log('Adding token to request:', formattedToken.substring(0, 20) + '...');
+      } else {
+        console.log('No token found in AsyncStorage');
+      }
+    } catch (error) {
+      console.error('Error getting token:', error);
     }
     return config;
   },
   error => {
+    console.error('Request interceptor error:', error);
     return Promise.reject(error);
   },
 );

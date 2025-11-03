@@ -1,5 +1,5 @@
 // src/screens/auth/KYCUploadScreen.js
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -18,15 +18,43 @@ import { USER_ROLES, KYC_STATUS } from '../../utils/constants';
 import { useToast } from '../../context.js/ToastContext';
 import { handleApiError, showSuccess } from '../../utils/helpers';
 
-const KYCUploadScreen = ({ navigation }) => {
-  const { user } = useSelector(state => state.auth);
+const KYCUploadScreen = ({ navigation, route }) => {
+  const { user: authUser } = useSelector(state => state.auth);
+  const [user, setUser] = useState(authUser);
   const toast = useToast();
   const [documents, setDocuments] = useState({
     idProof: null,
     businessLicense: null,
     drivingLicense: null,
   });
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Fetch fresh user data on mount
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const response = await api.get('/auth/me');
+        setUser(response.data);
+      } catch (error) {
+        console.error('Failed to fetch user data:', error);
+        // Fallback to auth user if available
+        if (authUser) setUser(authUser);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchUser();
+  }, []);
+
+  // Show loading state
+  if (isLoading || !user) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
 
   const requestPermissions = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -43,7 +71,7 @@ const KYCUploadScreen = ({ navigation }) => {
 
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: 'images',
         allowsEditing: true,
         aspect: [4, 3],
         quality: 0.8,
@@ -62,12 +90,12 @@ const KYCUploadScreen = ({ navigation }) => {
 
   const uploadDocuments = async () => {
     // Validate based on role
-    if (user.role === USER_ROLES.RESTAURANT) {
+    if (user?.role === USER_ROLES.RESTAURANT) {
       if (!documents.idProof || !documents.businessLicense) {
         toast.show('Please upload all required documents', 'error');
         return;
       }
-    } else if (user.role === USER_ROLES.RIDER) {
+    } else if (user?.role === USER_ROLES.RIDER) {
       if (!documents.idProof || !documents.drivingLicense) {
         toast.show('Please upload all required documents', 'error');
         return;
@@ -238,7 +266,7 @@ const KYCUploadScreen = ({ navigation }) => {
           'card-outline',
         )}
 
-        {user.role === USER_ROLES.RESTAURANT &&
+        {user?.role === USER_ROLES.RESTAURANT &&
           renderDocumentCard(
             'Business License',
             'businessLicense',
@@ -246,7 +274,7 @@ const KYCUploadScreen = ({ navigation }) => {
             'document-text-outline',
           )}
 
-        {user.role === USER_ROLES.RIDER &&
+        {user?.role === USER_ROLES.RIDER &&
           renderDocumentCard(
             'Driving License',
             'drivingLicense',
@@ -255,7 +283,7 @@ const KYCUploadScreen = ({ navigation }) => {
           )}
 
         {/* Submit Button */}
-        {user.kycStatus !== KYC_STATUS.APPROVED && (
+        {user?.kycStatus !== KYC_STATUS.APPROVED && (
           <TouchableOpacity
             style={[styles.submitButton, isLoading && styles.disabledButton]}
             onPress={uploadDocuments}
@@ -277,6 +305,12 @@ const KYCUploadScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+  },
   container: {
     flex: 1,
     backgroundColor: colors.background,

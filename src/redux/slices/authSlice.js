@@ -14,13 +14,18 @@ export const login = createAsyncThunk(
   async ({ email, password }, { rejectWithValue }) => {
     try {
       const response = isDevelopment 
-        ? await apiClient.login({ email, password })
+        ? (await apiClient.login({ email, password })).data
         : (await apiClient.post('/auth/login', { email, password })).data;
       
-      await AsyncStorage.setItem('userToken', response.token);
-      return response;
+      if (response && response.token) {
+        await AsyncStorage.setItem('userToken', response.token);
+        return response;
+      } else {
+        throw new Error('Invalid response from server');
+      }
     } catch (error) {
-      return rejectWithValue(error.message || 'Login failed');
+      console.error('Login error:', error);
+      return rejectWithValue(error.message || 'Login failed. Please try again.');
     }
   },
 );
@@ -57,16 +62,55 @@ export const loadUser = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const token = await AsyncStorage.getItem('userToken');
-      if (!token) return null;
-
-      // In development, return a mock user
-      if (isDevelopment) {
-        return { id: 'mock-user-id', email: 'test@example.com', role: 'customer' };
+      if (!token) {
+        console.log('No token found in AsyncStorage');
+        return null;
       }
 
+      // In development, use mock API
+      if (isDevelopment) {
+        console.log('Using mock API for user data');
+        try {
+          const response = await mockApi.getUser();
+          return response;
+        } catch (mockError) {
+          console.error('Mock API error:', mockError);
+          // Fallback to a basic mock user if mock API fails
+          return { 
+            id: 'mock-user-id', 
+            _id: 'mock-user-id',
+            email: 'admin786@gmail.com', 
+            name: 'Rizwan',
+            phone: '031807371071',
+            role: 'restaurant',
+            kycStatus: 'pending',
+            isEmailVerified: true,
+            isPhoneVerified: true
+          };
+        }
+      }
+
+      // In production, call the real API
+      console.log('Fetching user data from API');
       const response = await api.get('/auth/me');
       return response.data;
     } catch (error) {
+      console.error('Error in loadUser:', error);
+      // In development, return a mock user on error
+      if (isDevelopment) {
+        console.log('Falling back to mock user due to error');
+        return { 
+          id: 'mock-user-id', 
+          _id: 'mock-user-id',
+          email: 'admin786@gmail.com', 
+          name: 'Rizwan',
+          phone: '031807371071',
+          role: 'restaurant',
+          kycStatus: 'pending',
+          isEmailVerified: true,
+          isPhoneVerified: true
+        };
+      }
       return rejectWithValue(
         error.response?.data?.message || 'Failed to load user',
       );
