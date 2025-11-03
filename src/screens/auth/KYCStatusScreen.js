@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useDispatch, useSelector } from 'react-redux';
@@ -12,6 +12,7 @@ const KYCStatusScreen = () => {
   const toast = useToast();
   const navigation = useNavigation();
   const { user, loading } = useSelector((state) => state.auth);
+  const [forceApproved, setForceApproved] = useState(false);
   
   // Refresh user data periodically to check KYC status
   useEffect(() => {
@@ -23,6 +24,18 @@ const KYCStatusScreen = () => {
   }, [dispatch]);
 
   const getStatusDetails = () => {
+    // Force approved state for development
+    if (forceApproved) {
+      return {
+        title: 'KYC Approved!',
+        message: 'Your KYC has been approved. You can now set up your restaurant.',
+        icon: <MaterialIcons name="check-circle" size={80} color="#4CAF50" />,
+        buttonText: 'Setup Restaurant',
+        showButton: true,
+        onPress: () => navigation.replace('SetupRestaurant')
+      };
+    }
+    
     switch (user?.kycStatus) {
       case KYC_STATUS.PENDING:
         return {
@@ -33,13 +46,39 @@ const KYCStatusScreen = () => {
           showButton: true
         };
       case KYC_STATUS.APPROVED:
+        const handleGetStarted = async () => {
+          try {
+            // In development, directly go to restaurant setup
+            if (__DEV__) {
+              navigation.navigate('SetupRestaurant');
+              return;
+            }
+            
+            // In production, check if restaurant exists
+            const response = await api.get('/restaurants/my-restaurant');
+            if (response.data?.restaurant) {
+              navigation.navigate('RestaurantDashboard');
+            } else {
+              navigation.navigate('SetupRestaurant');
+            }
+          } catch (error) {
+            // If no restaurant exists, go to setup
+            if (error.response?.status === 404) {
+              navigation.navigate('SetupRestaurant');
+            } else {
+              console.error('Error checking restaurant status:', error);
+              // Still navigate to setup in case of error
+              navigation.navigate('SetupRestaurant');
+            }
+          }
+        };
         return {
           title: 'KYC Approved!',
           message: 'Your KYC has been approved. You can now set up your restaurant.',
           icon: <MaterialIcons name="check-circle" size={80} color="#4CAF50" />,
-          buttonText: 'Setup Restaurant',
+          buttonText: 'Get Started',
           showButton: true,
-          onPress: () => navigation.replace('SetupRestaurant')
+          onPress: handleGetStarted
         };
       case KYC_STATUS.REJECTED:
         return {
@@ -80,17 +119,29 @@ const KYCStatusScreen = () => {
       <Text style={styles.message}>{status.message}</Text>
       
       {status.showButton && (
-        <TouchableOpacity 
-          style={styles.button}
-          onPress={status.onPress || (() => dispatch(loadUser()))}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.buttonText}>{status.buttonText}</Text>
+        <View>
+          <TouchableOpacity 
+            style={styles.button}
+            onPress={status.onPress || (() => dispatch(loadUser()))}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.buttonText}>{status.buttonText}</Text>
+            )}
+          </TouchableOpacity>
+          
+          {/* Force Approve Button (Development Only) */}
+          {__DEV__ && !forceApproved && (
+            <TouchableOpacity 
+              style={[styles.button, { marginTop: 10, backgroundColor: '#FF9800' }]}
+              onPress={() => setForceApproved(true)}
+            >
+              <Text style={styles.buttonText}>Force Approve (Dev Only)</Text>
+            </TouchableOpacity>
           )}
-        </TouchableOpacity>
+        </View>
       )}
     </View>
   );

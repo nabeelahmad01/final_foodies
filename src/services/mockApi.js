@@ -124,7 +124,7 @@ const mockApi = {
         email: 'admin786@gmail.com',
         phone: '031807371071',
         role: 'restaurant',
-        kycStatus: 'pending',
+        kycStatus: 'approved',
         restaurantName: 'My Restaurant',
         address: '123 Main Street, City',
         city: 'Lahore',
@@ -146,7 +146,7 @@ const mockApi = {
       ...userData,
       _id: userData._id || userData.id,
       role: userData.role || 'restaurant',
-      kycStatus: userData.kycStatus || 'pending',
+      kycStatus: userData.kycStatus || 'approved',
       isEmailVerified: userData.isEmailVerified || true,
       isPhoneVerified: userData.isPhoneVerified || true
     };
@@ -289,7 +289,7 @@ const mockApi = {
                   saturday: { open: '10:00', close: '23:00' },
                   sunday: { open: '10:00', close: '22:00' }
                 },
-                kycStatus: user.kycStatus || 'pending',
+                kycStatus: user.kycStatus || 'approved',
                 isSetupComplete: !!user.restaurantName
               },
               popularItems: [
@@ -359,10 +359,10 @@ const mockApi = {
               message: 'KYC documents submitted for verification',
               user: {
                 ...user,
-                kycStatus: 'pending',
+                kycStatus: 'approved',
                 kycDocuments: user.kycDocuments || {}
               },
-              kycStatus: 'pending',
+              kycStatus: 'approved',
               message: 'KYC documents uploaded successfully. Your documents are under review.'
             } 
           };

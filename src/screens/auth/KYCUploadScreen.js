@@ -96,7 +96,7 @@ const KYCUploadScreen = ({ navigation, route }) => {
             name: 'Rizwan',
             phone: '031807371071',
             role: 'restaurant',
-            kycStatus: 'pending',
+            kycStatus: 'approved', // Changed from 'pending' to 'approved'
             isEmailVerified: true,
             isPhoneVerified: true,
             createdAt: new Date().toISOString()
@@ -276,11 +276,29 @@ const KYCUploadScreen = ({ navigation, route }) => {
         // Simulate API delay
         await new Promise(resolve => setTimeout(resolve, 1000));
         
-        // Update KYC status in the user object
-        dispatch(updateUser({ kycStatus: 'pending_verification' }));
+        // Update KYC status in the user object to 'pending' for review
+        const updatedUser = {
+          ...user,
+          kycStatus: 'pending',
+          kycDocuments: {
+            idProof: documents.idProof?.uri || null,
+            businessLicense: documents.businessLicense?.uri || null,
+            drivingLicense: documents.drivingLicense?.uri || null,
+            submittedAt: new Date().toISOString()
+          }
+        };
+        
+        // Save the updated user to AsyncStorage for mock data
+        const users = await AsyncStorage.getItem('mockUsers') || '{}';
+        const parsedUsers = JSON.parse(users);
+        parsedUsers[user.email] = updatedUser;
+        await AsyncStorage.setItem('mockUsers', JSON.stringify(parsedUsers));
+        
+        // Update Redux store
+        dispatch(updateUser(updatedUser));
         
         // Show success message and navigate to KYC status screen
-        showSuccess(toast, 'KYC documents uploaded successfully');
+        showSuccess(toast, 'KYC documents submitted for review');
         navigation.replace('KYCStatus');
       } else {
         // Production code - make actual API request

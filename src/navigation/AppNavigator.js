@@ -56,11 +56,29 @@ const AppNavigator = () => {
     });
   }, [dispatch]);
 
-  // Determine initial route based on authentication status
+  // Determine initial route based on authentication status and restaurant setup
   const getInitialRoute = () => {
     if (!isAuthenticated) return 'Login';
+    
+    // For restaurant owners, check if they've completed setup
+    if (user?.role === 'restaurant_owner') {
+      // If KYC is not approved, show KYC status
+      if (user?.kycStatus !== 'approved') {
+        return 'KYCStatus';
+      }
+      // If KYC is approved but no restaurant is set up, show setup screen
+      if (!user?.restaurantId) {
+        return 'SetupRestaurant';
+      }
+      // After setup, go directly to RestaurantDashboard
+      return 'RestaurantDashboard';
+    }
+    
+    // For other roles
     if (user?.role === 'rider') return 'RiderDashboard';
     if (user?.role === 'restaurant') return 'RestaurantDashboard';
+    
+    // Default for regular users
     return 'MainTabs';
   };
 
@@ -139,7 +157,19 @@ const AppNavigator = () => {
         options={{
           headerShown: true,
           title: 'Restaurant Dashboard',
-          headerBackTitle: 'Back'
+          headerBackTitle: 'Back',
+          headerLeft: () => null, // Prevent going back to MenuManagement
+          gestureEnabled: false // Disable swipe back
+        }}
+      />
+      <Stack.Screen 
+        name="MenuManagement" 
+        component={RestaurantMenuManagement}
+        options={{
+          headerShown: true,
+          title: 'Menu Management',
+          headerBackTitle: 'Back',
+          gestureEnabled: true
         }}
       />
       {/* KYC and Restaurant Setup Flow */}
@@ -158,7 +188,9 @@ const AppNavigator = () => {
         options={{
           headerShown: true,
           title: 'Setup Restaurant',
-          headerBackTitle: 'Back'
+          headerBackTitle: 'Back',
+          headerLeft: () => null, // Prevent going back to KYC status
+          gestureEnabled: false // Disable swipe back
         }}
       />
       
@@ -228,15 +260,6 @@ const AppNavigator = () => {
       />
       
       {/* Restaurant Management */}
-      <Stack.Screen 
-        name="MenuManagement" 
-        component={RestaurantMenuManagement}
-        options={{
-          headerShown: true,
-          title: 'Menu Management',
-          headerBackTitle: 'Back'
-        }}
-      />
       <Stack.Screen 
         name="RestaurantOrders" 
         component={RestaurantOrders}

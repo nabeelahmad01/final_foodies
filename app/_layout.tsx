@@ -4,10 +4,10 @@ import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { Provider } from 'react-redux';
-import store from '../src/redux/store';
-import { ToastProvider } from '../src/context.js/ToastContext';
 import React from 'react';
+import { Provider } from 'react-redux';
+import { ToastProvider } from '../src/context.js/ToastContext';
+import store from '../src/redux/store';
 import { loadLanguage } from '../src/utils/i18n';
 
 
@@ -21,7 +21,7 @@ export default function RootLayout() {
     <Provider store={store}>
       <ToastProvider>
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-          <Stack>
+          <Stack screenOptions={{ headerShown: false }} >
             <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
           </Stack>
           <StatusBar style="auto" />

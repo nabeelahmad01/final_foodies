@@ -21,6 +21,7 @@ const SetupRestaurantScreen = ({ navigation }) => {
   const [askUseLocation, setAskUseLocation] = useState(false);
   const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState([]);
+  const [useCurrentLocation, setUseCurrentLocation] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(async () => {
@@ -30,12 +31,25 @@ const SetupRestaurantScreen = ({ navigation }) => {
       }
       try {
         const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(
-          query,
-        )}.json?access_token=${MAPBOX_ACCESS_TOKEN}&autocomplete=true&limit=5`;
+          query
+        )}.json?access_token=${MAPBOX_ACCESS_TOKEN}&autocomplete=true&limit=5&country=pk`;
+        
+        console.log('Fetching address suggestions for:', query);
         const res = await fetch(url);
         const data = await res.json();
-        setSuggestions(data.features || []);
-      } catch (_) {
+        
+        // Filter to only include results from Pakistan as an extra precaution
+        const pakistanResults = (data.features || []).filter(feature => {
+          // Check if the result is in Pakistan
+          const context = feature.context || [];
+          const country = context.find(c => c.id.includes('country'));
+          return country && country.text.toLowerCase() === 'pakistan';
+        });
+        
+        console.log('Filtered Pakistan results:', pakistanResults);
+        setSuggestions(pakistanResults);
+      } catch (error) {
+        console.error('Error fetching address suggestions:', error);
         setSuggestions([]);
       }
     }, 300);
@@ -51,10 +65,11 @@ const SetupRestaurantScreen = ({ navigation }) => {
       setLoading(true);
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        toast.show(t('common.error'), 'error');
+        toast.show('Location permission is required', 'error');
         setLoading(false);
         return;
       }
+      
       const loc = await Location.getCurrentPositionAsync({});
       const initial = {
         latitude: loc.coords.latitude,
@@ -62,18 +77,43 @@ const SetupRestaurantScreen = ({ navigation }) => {
         latitudeDelta: 0.01,
         longitudeDelta: 0.01,
       };
+      
       setRegion(initial);
-      // reverse geocode
+      setUseCurrentLocation(true);
+      
+      // Set a default address label if reverse geocoding fails
+      setAddressLabel(`Near ${loc.coords.latitude.toFixed(4)}, ${loc.coords.longitude.toFixed(4)}`);
+      
+      // Try reverse geocoding but don't block on it
       try {
-        const rev = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${initial.longitude},${initial.latitude}.json?access_token=${MAPBOX_ACCESS_TOKEN}&limit=1`);
+        const rev = await fetch(
+          `https://api.mapbox.com/geocoding/v5/mapbox.places/` +
+          `${initial.longitude},${initial.latitude}.json?` +
+          `access_token=${MAPBOX_ACCESS_TOKEN}&limit=1&country=pk`
+        );
         const data = await rev.json();
-        const place = data?.features?.[0]?.place_name;
-        if (place) setAddressLabel(place);
-      } catch {}
+        
+        // Only use the result if it's in Pakistan
+        const result = data?.features?.[0];
+        if (result) {
+          const context = result.context || [];
+          const country = context.find(c => c.id.includes('country'));
+          
+          if (country && country.text.toLowerCase() === 'pakistan') {
+            setAddressLabel(result.place_name);
+          } else {
+            toast.show('Please select a location in Pakistan', 'warning');
+          }
+        }
+      } catch (error) {
+        console.log('Reverse geocoding failed, using coordinates as fallback');
+      }
+      
       setLoading(false);
-    } catch (e) {
+    } catch (error) {
+      console.error('Error getting location:', error);
+      toast.show('Failed to get current location', 'error');
       setLoading(false);
-      handleApiError(e, toast);
     }
   };
 
@@ -84,23 +124,67 @@ const SetupRestaurantScreen = ({ navigation }) => {
   }, [step, name, region, addressLabel]);
 
   const submit = async () => {
+    if (!region) {
+      toast.show('Please select a location on the map', 'error');
+      return;
+    }
+    
+    if (!addressLabel.trim()) {
+      toast.show('Please enter an address label', 'error');
+      return;
+    }
+    
     try {
       setLoading(true);
-      const payload = {
+      
+      // Create a mock response in development to prevent network errors
+      if (__DEV__) {
+        console.log('Mock restaurant creation:', {
+          name: name.trim(),
+          address: addressLabel.trim(),
+          coords: { lat: region.latitude, lng: region.longitude }
+        });
+        
+        // Simulate API delay
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // In development, directly navigate to MenuManagement with mock restaurantId
+        showSuccess(toast, 'Restaurant setup successful!');
+        setLoading(false);
+        navigation.navigate('MenuManagement', { restaurantId: 'mock_restaurant_id' });
+        return;
+      }
+      
+      // Production API call
+      const response = await api.post('/restaurants', {
         name: name.trim(),
-        address: {
-          label: addressLabel.trim(),
-          formatted: addressLabel.trim(),
-          coords: { lat: region.latitude, lng: region.longitude },
-        },
-      };
-      await api.post('/restaurants', payload);
+        address: addressLabel.trim(),
+        location: {
+          type: 'Point',
+          coordinates: [region.longitude, region.latitude]
+        }
+      });
+      
+      // In production, navigate to MenuManagement to add menu items
+      showSuccess(toast, 'Restaurant setup successful!');
       setLoading(false);
-      showSuccess(toast, t('common.success'));
-      navigation.replace('RestaurantDashboard');
-    } catch (e) {
+      navigation.navigate('MenuManagement', { restaurantId: response.data._id });
+    } catch (error) {
+      console.error('Error creating restaurant:', error);
       setLoading(false);
-      handleApiError(e, toast);
+      
+      // Show more specific error messages
+      if (error.response) {
+        // Server responded with error status
+        const message = error.response.data?.message || 'Failed to create restaurant';
+        toast.show(message, 'error');
+      } else if (error.request) {
+        // No response received
+        toast.show('Network error. Please check your connection.', 'error');
+      } else {
+        // Other errors
+        toast.show('An error occurred. Please try again.', 'error');
+      }
     }
   };
 
@@ -129,12 +213,16 @@ const SetupRestaurantScreen = ({ navigation }) => {
       {step === 2 && (
         <View style={styles.content}>
           <Text style={styles.title}>Restaurant Address</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Search address or type label"
-            value={query}
-            onChangeText={setQuery}
-          />
+          <View style={styles.searchContainer}>
+            <Icon name="search" size={20} color={colors.text.secondary} style={styles.searchIcon} />
+            <TextInput
+              style={[styles.input, styles.searchInput]}
+              placeholder="Search for your restaurant's address"
+              placeholderTextColor={colors.text.secondary}
+              value={query}
+              onChangeText={setQuery}
+            />
+          </View>
           {!!suggestions.length && (
             <View style={styles.suggestions}>
               {suggestions.map((f) => (
@@ -157,10 +245,13 @@ const SetupRestaurantScreen = ({ navigation }) => {
             </View>
           )}
           <TextInput
-            style={styles.input}
-            placeholder="Address label (optional)"
+            style={[styles.input, styles.addressInput]}
+            placeholder="Enter your restaurant's address"
+            placeholderTextColor={colors.text.secondary}
             value={addressLabel}
             onChangeText={setAddressLabel}
+            multiline
+            numberOfLines={2}
           />
           <View style={styles.mapContainer}>
             {region ? (
@@ -231,7 +322,38 @@ const styles = StyleSheet.create({
   placeholder: { width: 40 },
   content: { padding: 16, gap: 12 },
   title: { fontSize: 16, fontWeight: '700', color: colors.text.primary },
-  input: { backgroundColor: colors.white, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border },
+  input: {
+    backgroundColor: colors.white,
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+    fontSize: 16,
+    color: colors.text.primary,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.white,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: 16,
+  },
+  searchIcon: {
+    padding: 12,
+  },
+  searchInput: {
+    flex: 1,
+    marginBottom: 0,
+    borderWidth: 0,
+    paddingLeft: 0,
+  },
+  addressInput: {
+    minHeight: 60,
+    textAlignVertical: 'top',
+  },
   mapContainer: { height: 240, borderRadius: 12, overflow: 'hidden', backgroundColor: colors.white },
   map: { flex: 1 },
   mapPlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center' },
