@@ -256,6 +256,18 @@ export const updateProfile = async (req, res) => {
 // @access  Private
 export const uploadKYC = async (req, res) => {
   try {
+    console.log('📤 KYC upload request received');
+    console.log('📋 Request headers:', req.headers['content-type']);
+    console.log('📋 Request body keys:', Object.keys(req.body));
+    console.log('📋 Request files:', req.files);
+    console.log('📋 File info:', req.file ? {
+      fieldname: req.file.fieldname,
+      originalname: req.file.originalname,
+      mimetype: req.file.mimetype,
+      size: req.file.size,
+      path: req.file.path
+    } : 'No file');
+
     if (!req.file) {
       return res.status(400).json({
         status: 'error',
@@ -264,33 +276,74 @@ export const uploadKYC = async (req, res) => {
     }
 
     const user = await User.findById(req.user.id);
+    console.log('📋 User found:', user.email);
 
-    // Upload file to Cloudinary
-    const result = await cloudinary.uploader.upload(req.file.path, {
-      folder: 'kyc-documents',
-      resource_type: 'auto',
-    });
+    try {
+      // Upload file to Cloudinary
+      console.log('☁️ Uploading to Cloudinary...');
+      const result = await cloudinary.uploader.upload(req.file.path, {
+        folder: 'kyc-documents',
+        resource_type: 'auto',
+      });
+      console.log('✅ Cloudinary upload successful:', result.secure_url);
 
-    // Save document URL
-    user.kycDocuments = user.kycDocuments || [];
-    user.kycDocuments.push({
-      type: req.file.fieldname,
-      url: result.secure_url,
-    });
+      // Save document URL
+      user.kycDocuments = user.kycDocuments || [];
+      user.kycDocuments.push({
+        type: req.file.fieldname,
+        url: result.secure_url,
+      });
 
-    user.kycStatus = 'pending';
-    await user.save();
+      user.kycStatus = 'pending';
+      await user.save();
+      console.log('✅ User updated with KYC document');
 
-    res.json({
-      status: 'success',
-      message: 'KYC documents uploaded successfully',
-      user,
-    });
+      res.json({
+        status: 'success',
+        message: 'KYC documents uploaded successfully',
+        user: {
+          _id: user._id,
+          name: user.name,
+          email: user.email,
+          kycStatus: user.kycStatus,
+          kycDocuments: user.kycDocuments
+        },
+      });
+
+    } catch (cloudinaryError) {
+      console.error('❌ Cloudinary upload failed:', cloudinaryError);
+      
+      // Fallback: Save file info without Cloudinary upload
+      console.log('💾 Saving without Cloudinary upload...');
+      user.kycDocuments = user.kycDocuments || [];
+      user.kycDocuments.push({
+        type: req.file.fieldname,
+        url: `local://uploads/${req.file.filename}`, // Local file reference
+      });
+
+      user.kycStatus = 'pending';
+      await user.save();
+      console.log('✅ User updated with local file reference');
+
+      res.json({
+        status: 'success',
+        message: 'KYC documents uploaded successfully (stored locally)',
+        user: {
+          _id: user._id,
+          name: user.name,
+          email: user.email,
+          kycStatus: user.kycStatus,
+          kycDocuments: user.kycDocuments
+        },
+      });
+    }
+
   } catch (error) {
-    console.error('KYC upload error:', error);
+    console.error('❌ KYC upload error:', error);
     res.status(500).json({
       status: 'error',
       message: 'Failed to upload documents',
+      error: error.message
     });
   }
 };

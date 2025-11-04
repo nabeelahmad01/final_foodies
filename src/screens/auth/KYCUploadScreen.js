@@ -1,7 +1,8 @@
 // src/screens/auth/KYCUploadScreen.js
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as FileSystem from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
 import { useEffect, useState } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   ActivityIndicator,
   Image,
@@ -9,15 +10,15 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
-import { useSelector, useDispatch } from 'react-redux';
-import { updateUser } from '../../redux/slices/authSlice';
+import { useDispatch, useSelector } from 'react-redux';
 import { useToast } from '../../context.js/ToastContext';
+import { updateUser } from '../../redux/slices/authSlice';
 import api from '../../services/api';
 import colors from '../../styles/colors';
-import { KYC_STATUS, USER_ROLES } from '../../utils/constants';
+import { API_URL, KYC_STATUS, USER_ROLES } from '../../utils/constants';
 import { handleApiError, showSuccess } from '../../utils/helpers';
 
 const KYCUploadScreen = ({ navigation, route }) => {
@@ -234,10 +235,18 @@ const KYCUploadScreen = ({ navigation, route }) => {
       // Helper function to append files to form data
       const appendFileToFormData = (file, fieldName) => {
         if (file && file.uri) {
-          const fileType = file.uri.endsWith('.png') ? 'image/png' : 'image/jpeg';
-          const fileName = file.uri.split('/').pop() || `${fieldName}_${Date.now()}.${fileType.split('/')[1] || 'jpg'}`;
+          // Determine file type based on URI extension
+          let fileType = 'image/jpeg'; // default
+          const uri = file.uri.toLowerCase();
+          if (uri.endsWith('.png')) fileType = 'image/png';
+          else if (uri.endsWith('.gif')) fileType = 'image/gif';
+          else if (uri.endsWith('.webp')) fileType = 'image/webp';
+          else if (uri.endsWith('.pdf')) fileType = 'application/pdf';
           
-          formDataToSend.append('documents', {
+          const fileName = file.uri.split('/').pop() || `${fieldName}_${Date.now()}.jpg`;
+          
+          // Backend expects 'document' (singular) not 'documents'
+          formDataToSend.append('document', {
             uri: file.uri,
             type: fileType,
             name: fileName,
@@ -245,44 +254,118 @@ const KYCUploadScreen = ({ navigation, route }) => {
         }
       };
       
-      // Append all files
-      appendFileToFormData(documents.idProof, 'id_proof');
-      if (user?.role === USER_ROLES.RESTAURANT) {
-        appendFileToFormData(documents.businessLicense, 'business_license');
-      } else if (user?.role === USER_ROLES.RIDER) {
-        appendFileToFormData(documents.drivingLicense, 'driving_license');
+      // Upload files one by one (backend expects single file per request)
+      const filesToUpload = [];
+      
+      if (documents.idProof?.uri) {
+        filesToUpload.push({ file: documents.idProof, fieldName: 'id_proof' });
       }
       
-      // Log the form data entries for debugging
-      console.log('FormData entries:', Object.fromEntries(formDataToSend._parts));
+      if (user?.role === USER_ROLES.RESTAURANT && documents.businessLicense?.uri) {
+        filesToUpload.push({ file: documents.businessLicense, fieldName: 'business_license' });
+      } else if (user?.role === USER_ROLES.RIDER && documents.drivingLicense?.uri) {
+        filesToUpload.push({ file: documents.drivingLicense, fieldName: 'driving_license' });
+      }
       
-      // Always use real API - no more mock data
+      if (filesToUpload.length === 0) {
+        toast.show('Please select at least one document', 'error');
+        setIsLoading(false);
+        return;
+      }
+      
+      console.log(`Uploading ${filesToUpload.length} files...`);
+      
+      // Always use real API - upload files one by one
       try {
-          const response = await api.post('/auth/upload-kyc', formDataToSend, {
-            headers: {
-              'Content-Type': 'multipart/form-data',
-              'Authorization': `Bearer ${token}`,
-            },
-          });
+        let uploadCount = 0;
+        
+        for (const { file, fieldName } of filesToUpload) {
+          const singleFormData = new FormData();
           
-          console.log('Upload successful:', response.data);
+          // Determine file type
+          let fileType = 'image/jpeg';
+          const uri = file.uri.toLowerCase();
+          if (uri.endsWith('.png')) fileType = 'image/png';
+          else if (uri.endsWith('.gif')) fileType = 'image/gif';
+          else if (uri.endsWith('.webp')) fileType = 'image/webp';
+          else if (uri.endsWith('.pdf')) fileType = 'application/pdf';
           
-          // Update KYC status in the user object
-          if (response.data.kycStatus) {
-            dispatch(updateUser({ kycStatus: response.data.kycStatus }));
+          const fileName = file.uri.split('/').pop() || `${fieldName}_${Date.now()}.jpg`;
+          
+          // Use expo-file-system for reliable file upload
+          console.log('File details:', { uri: file.uri, type: fileType, name: fileName });
+          
+          try {
+            // Use FileSystem.uploadAsync which handles FormData properly
+            console.log('Using FileSystem.uploadAsync for reliable upload...');
+            
+            const uploadResult = await FileSystem.uploadAsync(
+              `${API_URL}/auth/upload-kyc`,
+              file.uri,
+              {
+                fieldName: 'document',
+                httpMethod: 'POST',
+                uploadType: 'multipart',
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                },
+              }
+            );
+            
+            console.log('FileSystem upload result:', uploadResult);
+            
+            if (uploadResult.status === 200 || uploadResult.status === 201) {
+              const responseData = JSON.parse(uploadResult.body);
+              console.log(`✅ Uploaded ${fieldName} successfully using FileSystem`);
+              uploadCount++;
+              continue; // Skip the axios call, we already uploaded
+            } else {
+              throw new Error(`Upload failed with status ${uploadResult.status}`);
+            }
+            
+          } catch (fileSystemError) {
+            console.log('FileSystem upload failed, trying FormData method:', fileSystemError.message);
+            
+            // Fallback to FormData method
+            singleFormData.append('document', {
+              uri: file.uri,
+              type: fileType,
+              name: fileName,
+            });
           }
           
-          // Show success message and navigate back
-          showSuccess(toast, response.data.message || 'KYC documents uploaded successfully');
-          navigation.goBack();
-        } catch (error) {
-          console.error('Upload failed:', error);
-          console.error('Error details:', error.response?.data || error.message);
-          toast.show(
-            error.response?.data?.message || 'Failed to upload documents. Please try again.',
-            'error'
-          );
+          console.log(`Uploading ${fieldName}:`, { fileName, fileType });
+          console.log('FormData keys:', singleFormData._parts ? singleFormData._parts.map(p => p[0]) : 'No _parts');
+          
+          const response = await api.post('/auth/upload-kyc', singleFormData, {
+            headers: {
+              // Don't set Content-Type - let React Native handle it automatically
+              'Authorization': `Bearer ${token}`,
+            },
+            timeout: 60000, // 60 second timeout for file uploads
+          });
+          
+          uploadCount++;
+          console.log(`✅ Uploaded ${fieldName} successfully (${uploadCount}/${filesToUpload.length})`);
         }
+        
+        console.log('All uploads successful!');
+        
+        // Update KYC status
+        dispatch(updateUser({ kycStatus: 'pending' }));
+        
+        // Show success message and navigate back
+        showSuccess(toast, `${uploadCount} document(s) uploaded successfully`);
+        navigation.goBack();
+        
+      } catch (error) {
+        console.error('Upload failed:', error);
+        console.error('Error details:', error.response?.data || error.message);
+        toast.show(
+          error.response?.data?.message || 'Failed to upload documents. Please try again.',
+          'error'
+        );
+      }
     } catch (error) {
       setIsLoading(false);
       handleApiError(error, toast);
