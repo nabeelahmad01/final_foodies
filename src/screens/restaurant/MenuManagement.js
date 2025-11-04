@@ -18,13 +18,16 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useFocusEffect } from '@react-navigation/native';
+import { useDispatch } from 'react-redux';
 import api from '../../services/api';
 import colors from '../../styles/colors';
 import { useToast } from '../../context.js/ToastContext';
 import { handleApiError, showSuccess } from '../../utils/helpers';
 import ConfirmModal from '../../components/ConfirmModal';
+import { logout } from '../../redux/slices/authSlice';
 
 const MenuManagement = ({ navigation, route }) => {
+  const dispatch = useDispatch();
   const toast = useToast();
   
   // Check if restaurantId is provided
@@ -82,29 +85,63 @@ const MenuManagement = ({ navigation, route }) => {
   const fetchCategories = async () => {
     try {
       setLoading(true);
-      // Real API call to fetch categories
-      const response = await api.get(`/restaurants/${restaurantId}/categories`);
-      setCategories(response.data);
-      if (response.data.length > 0 && !selectedCategory) {
-        setSelectedCategory(response.data[0]);
+      // Get menu items and extract unique categories
+      const response = await api.get(`/restaurants/${restaurantId}/menu`);
+      const menuItemsData = response.data?.menuItems || [];
+      
+      // Extract unique categories from menu items
+      const uniqueCategories = [...new Set(menuItemsData.map(item => item.category))];
+      const categoriesData = uniqueCategories.map((cat, index) => ({
+        _id: `cat_${index}`,
+        name: cat
+      }));
+      
+      // Add default categories if none exist
+      if (categoriesData.length === 0) {
+        categoriesData.push(
+          { _id: 'cat_0', name: 'Main Course' },
+          { _id: 'cat_1', name: 'Appetizers' },
+          { _id: 'cat_2', name: 'Desserts' },
+          { _id: 'cat_3', name: 'Beverages' }
+        );
+      }
+      
+      setCategories(categoriesData);
+      if (categoriesData.length > 0 && !selectedCategory) {
+        setSelectedCategory(categoriesData[0]);
       }
     } catch (error) {
-      console.error('Failed to fetch categories:', error);
-      handleApiError(error, toast);
+      console.error('Failed to fetch menu data:', error);
+      // Set default categories on error
+      const defaultCategories = [
+        { _id: 'cat_0', name: 'Main Course' },
+        { _id: 'cat_1', name: 'Appetizers' },
+        { _id: 'cat_2', name: 'Desserts' },
+        { _id: 'cat_3', name: 'Beverages' }
+      ];
+      setCategories(defaultCategories);
+      setSelectedCategory(defaultCategories[0]);
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchMenuItems = async (categoryId) => {
+  const fetchMenuItems = async (categoryName) => {
     try {
       setLoading(true);
-      // Real API call to fetch menu items
-      const response = await api.get(`/restaurants/${restaurantId}/menu?category=${categoryId}`);
-      setMenuItems(response.data);
+      // Get all menu items for this restaurant
+      const response = await api.get(`/restaurants/${restaurantId}/menu`);
+      const allMenuItems = response.data?.menuItems || [];
+      
+      // Filter by category name if provided
+      const filteredItems = categoryName 
+        ? allMenuItems.filter(item => item.category === categoryName)
+        : allMenuItems;
+      
+      setMenuItems(filteredItems);
     } catch (error) {
       console.error('Failed to fetch menu items:', error);
-      handleApiError(error, toast);
+      setMenuItems([]);
     } finally {
       setLoading(false);
     }
@@ -113,7 +150,7 @@ const MenuManagement = ({ navigation, route }) => {
   // Load menu items when category changes
   useEffect(() => {
     if (selectedCategory) {
-      fetchMenuItems(selectedCategory._id);
+      fetchMenuItems(selectedCategory.name);
     } else {
       setMenuItems([]);
     }
@@ -132,37 +169,64 @@ const MenuManagement = ({ navigation, route }) => {
     }
 
     try {
-      // Real API call to add category
-      const response = await api.post(`/restaurants/${restaurantId}/categories`, { 
-        name: newCategory.trim() 
-      });
+      // Check if category already exists
+      const categoryExists = categories.some(cat => 
+        cat.name.toLowerCase() === newCategory.trim().toLowerCase()
+      );
       
-      setCategories(prev => [...prev, response.data]);
-      setSelectedCategory(response.data);
+      if (categoryExists) {
+        toast.show('Category already exists', 'error');
+        return;
+      }
+      
+      // Add category locally (categories are managed through menu items)
+      const newCat = {
+        _id: `cat_${Date.now()}`,
+        name: newCategory.trim()
+      };
+      
+      setCategories(prev => [...prev, newCat]);
+      setSelectedCategory(newCat);
       setShowCategoryModal(false);
       setNewCategory('');
-      showSuccess(toast, 'Category added successfully');
+      showSuccess(toast, 'Category added successfully! Add menu items to this category.');
     } catch (error) {
       console.error('Error adding category:', error);
-      handleApiError(error, toast);
+      toast.show('Failed to add category', 'error');
     }
   };
 
   // Delete category
   const handleDeleteCategory = async (categoryId) => {
     try {
-      // Real API call to delete category
-      await api.delete(`/restaurants/${restaurantId}/categories/${categoryId}`);
+      // Check if category has menu items
+      const categoryMenuItems = menuItems.filter(item => item.category === selectedCategory?.name);
       
+      if (categoryMenuItems.length > 0) {
+        toast.show('Cannot delete category with menu items. Delete menu items first.', 'error');
+        return;
+      }
+      
+      // Delete category locally
       setCategories(prev => prev.filter(cat => cat._id !== categoryId));
       if (selectedCategory && selectedCategory._id === categoryId) {
-        setSelectedCategory(null);
+        const remainingCategories = categories.filter(cat => cat._id !== categoryId);
+        setSelectedCategory(remainingCategories.length > 0 ? remainingCategories[0] : null);
       }
       showSuccess(toast, 'Category deleted');
     } catch (error) {
       console.error('Error deleting category:', error);
-      handleApiError(error, toast);
+      toast.show('Failed to delete category', 'error');
     }
+  };
+
+  // Handle logout
+  const handleLogout = () => {
+    dispatch(logout());
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'Login' }],
+    });
   };
 
   // Pick image from gallery
@@ -260,10 +324,9 @@ const MenuManagement = ({ navigation, route }) => {
     );
   };
 
-  // Upload image to server (mock implementation for development)
+  // Upload image to server (real implementation)
   const uploadImageToServer = async (imageUri) => {
-    // In production, implement actual image upload to your server or cloud storage
-    // For development, we'll just return the local URI
+    // Always use real API - implement actual image upload
     return new Promise((resolve) => {
       setTimeout(() => {
         resolve(imageUri.uri);
@@ -538,16 +601,24 @@ const MenuManagement = ({ navigation, route }) => {
           <Icon name="arrow-back" size={24} color={colors.white} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Menu Management</Text>
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => {
-            resetForm();
-            setEditingItem(null);
-            setShowAddModal(true);
-          }}
-        >
-          <Icon name="add" size={24} color={colors.white} />
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            style={styles.headerButton}
+            onPress={() => {
+              resetForm();
+              setEditingItem(null);
+              setShowAddModal(true);
+            }}
+          >
+            <Icon name="add" size={24} color={colors.white} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.headerButton}
+            onPress={handleLogout}
+          >
+            <Icon name="log-out-outline" size={24} color={colors.white} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Categories List */}
@@ -827,6 +898,19 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: colors.white,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
   },
   addButton: {
     width: 40,

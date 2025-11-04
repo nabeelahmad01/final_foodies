@@ -1,6 +1,7 @@
 // src/utils/constants.js
 // Use your computer's local IP address here
-export const API_URL = 'http://192.168.0.25:5000/api';
+// Make sure to update this with your actual local IP address
+export const API_URL = 'http://192.168.0.43:5000/api';
 
 export const ORDER_STATUS = {
   PENDING: 'pending',

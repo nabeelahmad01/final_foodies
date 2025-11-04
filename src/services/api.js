@@ -20,55 +20,7 @@ const api = axios.create({
 api.interceptors.request.use(
   async config => {
     try {
-      // In development, use mock data for specific endpoints
-      if (isDevelopment) {
-        // Handle mock data for /auth/me
-        if (config.url === '/auth/me') {
-          console.log('Using mock data for /auth/me in development');
-          config.adapter = () => {
-            return Promise.resolve({
-              data: {
-                id: 'mock-user-id',
-                _id: 'mock-user-id',
-                email: 'admin786@gmail.com',
-                name: 'Rizwan',
-                phone: '031807371071',
-                role: 'restaurant',
-                kycStatus: 'pending',
-                isEmailVerified: true,
-                isPhoneVerified: true,
-                createdAt: new Date().toISOString()
-              },
-              status: 200,
-              statusText: 'OK',
-              headers: {},
-              config: { ...config, __isRetryRequest: true },
-              request: {}
-            });
-          };
-          return config;
-        }
-        
-        // Handle mock data for KYC upload
-        if (config.url === '/auth/upload-kyc') {
-          console.log('Using mock data for /auth/upload-kyc in development');
-          config.adapter = () => {
-            return Promise.resolve({
-              data: {
-                success: true,
-                message: 'KYC documents uploaded successfully',
-                kycStatus: 'pending_verification'
-              },
-              status: 200,
-              statusText: 'OK',
-              headers: {},
-              config: { ...config, __isRetryRequest: true },
-              request: {}
-            });
-          };
-          return config;
-        }
-      }
+      // Always use real API - no mock data
 
       // For real API requests, add the token
       let token = await AsyncStorage.getItem('userToken');

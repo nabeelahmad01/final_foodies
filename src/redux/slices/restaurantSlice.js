@@ -64,7 +64,8 @@ const restaurantSlice = createSlice({
       })
       .addCase(fetchRestaurants.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.restaurants = action.payload;
+        // Handle both direct array and object with restaurants property
+        state.restaurants = action.payload?.restaurants || action.payload || [];
       })
       .addCase(fetchRestaurants.rejected, (state, action) => {
         state.isLoading = false;

@@ -137,25 +137,14 @@ const SetupRestaurantScreen = ({ navigation }) => {
     try {
       setLoading(true);
       
-      // Create a mock response in development to prevent network errors
-      if (__DEV__) {
-        console.log('Mock restaurant creation:', {
-          name: name.trim(),
-          address: addressLabel.trim(),
-          coords: { lat: region.latitude, lng: region.longitude }
-        });
-        
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // In development, directly navigate to MenuManagement with mock restaurantId
-        showSuccess(toast, 'Restaurant setup successful!');
-        setLoading(false);
-        navigation.navigate('MenuManagement', { restaurantId: 'mock_restaurant_id' });
-        return;
-      }
+      // Always use real API - no more mock data
+      console.log('Creating restaurant:', {
+        name: name.trim(),
+        address: addressLabel.trim(),
+        coords: { lat: region.latitude, lng: region.longitude }
+      });
       
-      // Production API call
+      // Real API call
       const response = await api.post('/restaurants', {
         name: name.trim(),
         address: addressLabel.trim(),
@@ -165,10 +154,13 @@ const SetupRestaurantScreen = ({ navigation }) => {
         }
       });
       
-      // In production, navigate to MenuManagement to add menu items
+      // Navigate to MenuManagement with the created restaurant ID
+      const restaurantId = response.data?.restaurant?._id || response.data?._id;
+      console.log('Created restaurant ID:', restaurantId);
+      
       showSuccess(toast, 'Restaurant setup successful!');
       setLoading(false);
-      navigation.navigate('MenuManagement', { restaurantId: response.data._id });
+      navigation.navigate('MenuManagement', { restaurantId });
     } catch (error) {
       console.error('Error creating restaurant:', error);
       setLoading(false);

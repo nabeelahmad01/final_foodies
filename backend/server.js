@@ -194,6 +194,16 @@ app.use('/api/favorites', favoritesRoutes);
 app.use('/api/addresses', addressesRoutes);
 app.use('/api/chat', chatRoutes);
 
+// Root route
+app.get('/', (req, res) => {
+  res.json({
+    status: 'success',
+    message: 'Foodies Backend API is running',
+    version: '1.0.0',
+    timestamp: new Date().toISOString(),
+  });
+});
+
 // Health check route
 app.get('/api/health', (req, res) => {
   res.json({

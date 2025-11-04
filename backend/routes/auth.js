@@ -7,6 +7,9 @@ import upload from '../middleware/upload.js';
 
 const router = express.Router();
 
+// Test database connection
+router.get('/test-db', authController.testDatabase);
+
 // Register
 router.post(
   '/register',

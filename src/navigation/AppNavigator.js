@@ -2,6 +2,8 @@
 import { createStackNavigator } from '@react-navigation/stack';
 import React, { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { loadUser } from '../redux/slices/authSlice';
 
 // Auth Screens
 import KYCStatusScreen from '../screens/auth/KYCStatusScreen';
@@ -49,33 +51,60 @@ const AppNavigator = () => {
   }), [authState.isAuthenticated, authState.user]);
 
   useEffect(() => {
-    // Remove automatic user loading
-    // Users must now log in manually
-  }, [dispatch]);
+    // Load user data on app start if token exists
+    const loadUserData = async () => {
+      try {
+        const token = await AsyncStorage.getItem('userToken');
+        if (token && !user) {
+          console.log('Loading user data on app start...');
+          dispatch(loadUser());
+        }
+      } catch (error) {
+        console.error('Error loading user on app start:', error);
+      }
+    };
+    
+    loadUserData();
+  }, [dispatch, user]);
 
-  // Determine initial route based on authentication status and restaurant setup
+  // Determine initial route based on authentication status and KYC/setup completion
   const getInitialRoute = () => {
     if (!isAuthenticated) return 'Login';
     
-    // For restaurant owners, check if they've completed setup
-    if (user?.role === 'restaurant_owner') {
+    console.log('User data for navigation:', user);
+    
+    // For restaurant role users
+    if (user?.role === 'restaurant') {
+      // If KYC is approved and restaurant is set up, go to dashboard
+      if (user?.kycStatus === 'approved' && user?.restaurantId) {
+        return 'RestaurantDashboard';
+      }
+      // If KYC is approved but no restaurant setup, go to setup
+      if (user?.kycStatus === 'approved' && !user?.restaurantId) {
+        return 'SetupRestaurant';
+      }
+      // If KYC is not approved, show KYC status (but don't keep asking if already approved once)
+      if (user?.kycStatus !== 'approved') {
+        return 'KYCStatus';
+      }
+      // Fallback to restaurant dashboard
+      return 'RestaurantDashboard';
+    }
+    
+    // For rider role users
+    if (user?.role === 'rider') {
+      // If KYC is approved, go to rider dashboard
+      if (user?.kycStatus === 'approved') {
+        return 'RiderDashboard';
+      }
       // If KYC is not approved, show KYC status
       if (user?.kycStatus !== 'approved') {
         return 'KYCStatus';
       }
-      // If KYC is approved but no restaurant is set up, show setup screen
-      if (!user?.restaurantId) {
-        return 'SetupRestaurant';
-      }
-      // After setup, go directly to RestaurantDashboard
-      return 'RestaurantDashboard';
+      return 'RiderDashboard';
     }
     
-    // For other roles
-    if (user?.role === 'rider') return 'RiderDashboard';
-    if (user?.role === 'restaurant') return 'RestaurantDashboard';
-    
-    // Default for regular users
+    // For regular customers/users - no KYC required
     return 'MainTabs';
   };
 

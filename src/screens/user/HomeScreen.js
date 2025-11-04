@@ -15,6 +15,7 @@ import {
 import { useDispatch, useSelector } from 'react-redux';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { fetchRestaurants } from '../../redux/slices/restaurantSlice';
+import { logout } from '../../redux/slices/authSlice';
 import { CATEGORIES } from '../../utils/constants';
 import colors from '../../styles/colors';
 import { t } from '../../utils/i18n';
@@ -39,16 +40,28 @@ const HomeScreen = ({ navigation }) => {
   };
 
   const onRefresh = async () => {
-    try {
-      setRefreshing(true);
-      await loadRestaurants();
-    } finally {
-      setRefreshing(false);
-    }
+    setRefreshing(true);
+    await loadRestaurants();
+    setRefreshing(false);
+  };
+
+  const handleLogout = () => {
+    dispatch(logout());
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'Login' }],
+    });
   };
 
   const renderCategory = ({ item }) => (
-    <TouchableOpacity style={styles.categoryCard}>
+    <TouchableOpacity 
+      style={styles.categoryCard}
+      onPress={() => {
+        // Navigate to category-specific restaurants
+        console.log('Selected category:', item.name);
+        // You can add navigation here later
+      }}
+    >
       <View style={styles.categoryIcon}>
         <Text style={styles.categoryEmoji}>{item.icon}</Text>
       </View>
@@ -143,16 +156,28 @@ const HomeScreen = ({ navigation }) => {
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <View>
-            <Text style={styles.welcomeText}>Hello, {user?.name || 'Guest'}</Text>
+            <View style={styles.welcomeContainer}>
+              <Text style={styles.welcomeText}>Hello, {user?.name || 'Guest'}</Text>
+              {user?.kycStatus === 'approved' && (
+                <View style={styles.verifiedBadge}>
+                  <Icon name="checkmark-circle" size={16} color={colors.success} />
+                </View>
+              )}
+            </View>
             <Text style={styles.locationText}>
               <Icon name="location-outline" size={16} color={colors.white} />
               {' '}
               {user?.address?.city || 'Current Location'}
             </Text>
           </View>
-          <TouchableOpacity style={styles.profileButton}>
-            <Icon name="person-outline" size={24} color={colors.white} />
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <TouchableOpacity style={styles.profileButton}>
+              <Icon name="person-outline" size={24} color={colors.white} />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+              <Icon name="log-out-outline" size={24} color={colors.white} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         <View style={styles.searchContainer}>
@@ -224,15 +249,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 20,
   },
+  welcomeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   welcomeText: {
     fontSize: 20,
     fontWeight: 'bold',
     color: colors.white,
   },
+  verifiedBadge: {
+    marginLeft: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 12,
+    padding: 2,
+  },
   locationText: {
     color: colors.white,
     opacity: 0.9,
     marginTop: 4,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   profileButton: {
     width: 40,
@@ -241,6 +280,15 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  logoutButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 12,
   },
   searchContainer: {
     flexDirection: 'row',

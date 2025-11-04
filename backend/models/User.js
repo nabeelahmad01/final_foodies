@@ -85,6 +85,11 @@ const userSchema = new mongoose.Schema(
       },
     ],
     kycRejectionReason: String,
+    restaurantId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Restaurant',
+      default: null,
+    },
     isActive: {
       type: Boolean,
       default: true,

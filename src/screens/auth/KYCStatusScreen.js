@@ -48,27 +48,31 @@ const KYCStatusScreen = () => {
       case KYC_STATUS.APPROVED:
         const handleGetStarted = async () => {
           try {
-            // In development, directly go to restaurant setup
-            if (__DEV__) {
-              navigation.navigate('SetupRestaurant');
-              return;
-            }
-            
-            // In production, check if restaurant exists
-            const response = await api.get('/restaurants/my-restaurant');
-            if (response.data?.restaurant) {
-              navigation.navigate('RestaurantDashboard');
+            // For restaurant role, check if restaurant is already set up
+            if (user?.role === 'restaurant') {
+              if (user?.restaurantId) {
+                // Restaurant already exists, go to dashboard
+                navigation.replace('RestaurantDashboard');
+              } else {
+                // No restaurant set up yet, go to setup
+                navigation.replace('SetupRestaurant');
+              }
+            } else if (user?.role === 'rider') {
+              // For riders, go directly to rider dashboard
+              navigation.replace('RiderDashboard');
             } else {
-              navigation.navigate('SetupRestaurant');
+              // For other users, go to main app
+              navigation.replace('MainTabs');
             }
           } catch (error) {
-            // If no restaurant exists, go to setup
-            if (error.response?.status === 404) {
-              navigation.navigate('SetupRestaurant');
+            console.error('Error in handleGetStarted:', error);
+            // Fallback navigation based on role
+            if (user?.role === 'restaurant') {
+              navigation.replace('SetupRestaurant');
+            } else if (user?.role === 'rider') {
+              navigation.replace('RiderDashboard');
             } else {
-              console.error('Error checking restaurant status:', error);
-              // Still navigate to setup in case of error
-              navigation.navigate('SetupRestaurant');
+              navigation.replace('MainTabs');
             }
           }
         };

@@ -45,9 +45,7 @@ const KYCUploadScreen = ({ navigation, route }) => {
         const response = await api.get('/auth/me');
         console.log('User data response:', response);
         
-        // The response data is already the user object from our mock API
-        // In development, response.data is the user object directly
-        // In production, it might be response.data.user
+        // Always use real API response structure
         const userData = response.data.user || response.data;
         
         if (!userData) {
@@ -57,7 +55,7 @@ const KYCUploadScreen = ({ navigation, route }) => {
         // Ensure required fields exist
         const processedUser = {
           ...userData,
-          id: userData.id || userData._id || 'mock-user-id',
+          id: userData.id || userData._id,
           role: userData.role || 'restaurant',
           kycStatus: userData.kycStatus || 'pending',
           isEmailVerified: userData.isEmailVerified !== undefined ? userData.isEmailVerified : true,
@@ -77,7 +75,7 @@ const KYCUploadScreen = ({ navigation, route }) => {
           console.log('Using auth user as fallback');
           setUser({
             ...authUser,
-            id: authUser.id || authUser._id || 'mock-user-id',
+            id: authUser.id || authUser._id,
             role: authUser.role || 'restaurant',
             kycStatus: authUser.kycStatus || 'pending',
             isEmailVerified: authUser.isEmailVerified !== undefined ? authUser.isEmailVerified : true,
@@ -87,21 +85,9 @@ const KYCUploadScreen = ({ navigation, route }) => {
             phone: authUser.phone || '031807371071'
           });
         } else {
-          // If no auth user, create a mock user
-          console.log('Creating mock user as fallback');
-          const mockUser = {
-            id: 'mock-user-id',
-            _id: 'mock-user-id',
-            email: 'admin786@gmail.com',
-            name: 'Rizwan',
-            phone: '031807371071',
-            role: 'restaurant',
-            kycStatus: 'approved', // Changed from 'pending' to 'approved'
-            isEmailVerified: true,
-            isPhoneVerified: true,
-            createdAt: new Date().toISOString()
-          };
-          setUser(mockUser);
+          // If no auth user, redirect to login
+          console.log('No auth user found, redirecting to login');
+          navigation.replace('Login');
         }
       } finally {
         setIsLoading(false);
@@ -144,7 +130,7 @@ const KYCUploadScreen = ({ navigation, route }) => {
       if (!result.canceled) {
         setDocuments({
           ...documents,
-          [documentType]: result.assets[0],
+          [documentType]: result.assets[0]
         });
       }
     } catch (error) {
@@ -270,39 +256,8 @@ const KYCUploadScreen = ({ navigation, route }) => {
       // Log the form data entries for debugging
       console.log('FormData entries:', Object.fromEntries(formDataToSend._parts));
       
-      // In development, use mock response
-      if (__DEV__) {
-        console.log('Using mock KYC upload in development');
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Update KYC status in the user object to 'pending' for review
-        const updatedUser = {
-          ...user,
-          kycStatus: 'pending',
-          kycDocuments: {
-            idProof: documents.idProof?.uri || null,
-            businessLicense: documents.businessLicense?.uri || null,
-            drivingLicense: documents.drivingLicense?.uri || null,
-            submittedAt: new Date().toISOString()
-          }
-        };
-        
-        // Save the updated user to AsyncStorage for mock data
-        const users = await AsyncStorage.getItem('mockUsers') || '{}';
-        const parsedUsers = JSON.parse(users);
-        parsedUsers[user.email] = updatedUser;
-        await AsyncStorage.setItem('mockUsers', JSON.stringify(parsedUsers));
-        
-        // Update Redux store
-        dispatch(updateUser(updatedUser));
-        
-        // Show success message and navigate to KYC status screen
-        showSuccess(toast, 'KYC documents submitted for review');
-        navigation.replace('KYCStatus');
-      } else {
-        // Production code - make actual API request
-        try {
+      // Always use real API - no more mock data
+      try {
           const response = await api.post('/auth/upload-kyc', formDataToSend, {
             headers: {
               'Content-Type': 'multipart/form-data',
@@ -328,7 +283,6 @@ const KYCUploadScreen = ({ navigation, route }) => {
             'error'
           );
         }
-      }
     } catch (error) {
       setIsLoading(false);
       handleApiError(error, toast);

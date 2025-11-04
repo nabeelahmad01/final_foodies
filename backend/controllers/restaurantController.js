@@ -2,6 +2,7 @@
 import Restaurant from '../models/Restaurant.js';
 import MenuItem from '../models/MenuItem.js';
 import Order from '../models/Order.js';
+import User from '../models/User.js';
 
 // @desc    Get all restaurants
 // @route   GET /api/restaurants
@@ -225,6 +226,11 @@ export const createRestaurant = async (req, res) => {
     };
 
     const restaurant = await Restaurant.create(restaurantData);
+
+    // Update user's restaurantId
+    await User.findByIdAndUpdate(req.user.id, { 
+      restaurantId: restaurant._id 
+    });
 
     res.status(201).json({
       status: 'success',

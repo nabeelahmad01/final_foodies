@@ -32,38 +32,29 @@ const AddressManagementScreen = ({ navigation, route }) => {
 
   const fetchAddresses = async () => {
     try {
-      // In development, use mock data
-      const mockAddresses = [
-        { _id: '1', label: 'Home', address: '123 Main St', city: 'Lahore', country: 'Pakistan', isDefault: true },
-        { _id: '2', label: 'Work', address: '456 Business Ave', city: 'Karachi', country: 'Pakistan', isDefault: false },
-      ];
+      // Always use real API - no more mock data
+      const response = await api.get('/user/addresses');
+      const userAddresses = response.data?.addresses || [];
       
-      setAddresses(mockAddresses);
+      setAddresses(userAddresses);
       // Filter only Pakistan addresses
-      const pakistanAddresses = mockAddresses.filter(addr => 
+      const pakistanAddresses = userAddresses.filter(addr => 
         addr.country === 'Pakistan' || !addr.country
       );
       setFilteredAddresses(pakistanAddresses);
     } catch (error) {
       console.error('Failed to fetch addresses:', error);
-      // In development, use mock data even if there's an error
-      if (__DEV__) {
-        const mockAddresses = [
-          { _id: '1', label: 'Home', address: '123 Main St', city: 'Lahore', country: 'Pakistan', isDefault: true },
-          { _id: '2', label: 'Work', address: '456 Business Ave', city: 'Karachi', country: 'Pakistan', isDefault: false },
-        ];
-        setAddresses(mockAddresses);
-        setFilteredAddresses(mockAddresses);
-      } else {
-        handleApiError(error, toast);
-      }
+      setAddresses([]);
+      setFilteredAddresses([]);
+      handleApiError(error, toast);
     }
   };
 
   const handleAdd = async () => {
     try {
-      // In development, just add to local state
-      const newAddress = {
+      // Always use real API - no more mock data
+      const response = await api.post('/user/addresses', formData);
+      const newAddress = response.data?.address || {
         ...formData,
         _id: Date.now().toString(),
         country: 'Pakistan' // Ensure country is always Pakistan

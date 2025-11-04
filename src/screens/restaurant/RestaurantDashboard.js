@@ -9,15 +9,17 @@ import {
   RefreshControl,
   Switch,
 } from 'react-native';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import Icon from 'react-native-vector-icons/Ionicons';
 import api from '../../services/api';
 import colors from '../../styles/colors';
 import ConfirmModal from '../../components/ConfirmModal';
 import { t, useLanguageRerender } from '../../utils/i18n';
+import { logout } from '../../redux/slices/authSlice';
 
 const RestaurantDashboard = ({ navigation }) => {
   useLanguageRerender();
+  const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
   const [restaurant, setRestaurant] = useState(null);
   const [stats, setStats] = useState(null);
@@ -109,11 +111,22 @@ const RestaurantDashboard = ({ navigation }) => {
     }
   };
 
+  const handleLogout = () => {
+    dispatch(logout());
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'Login' }],
+    });
+  };
+
   if (!restaurant) {
     return (
       <View style={styles.container}>
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Restaurant Dashboard</Text>
+          <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
+            <Icon name="log-out-outline" size={24} color={colors.white} />
+          </TouchableOpacity>
         </View>
         <View style={styles.setupContainer}>
           <Icon name="restaurant-outline" size={80} color={colors.lightGray} />
@@ -158,9 +171,14 @@ const RestaurantDashboard = ({ navigation }) => {
           <Text style={styles.headerTitle}>Dashboard</Text>
           <Text style={styles.headerSubtitle}>{restaurant.name}</Text>
         </View>
-        <TouchableOpacity onPress={() => navigation.navigate('Profile')}>
-          <Icon name="settings-outline" size={24} color={colors.white} />
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity onPress={() => navigation.navigate('Profile')} style={styles.headerButton}>
+            <Icon name="settings-outline" size={24} color={colors.white} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={handleLogout} style={styles.headerButton}>
+            <Icon name="log-out-outline" size={24} color={colors.white} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView
@@ -304,6 +322,17 @@ const styles = StyleSheet.create({
     color: colors.white,
     opacity: 0.9,
     marginTop: 4,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerButton: {
+    marginLeft: 16,
+    padding: 8,
+  },
+  logoutButton: {
+    padding: 8,
   },
   setupContainer: {
     flex: 1,

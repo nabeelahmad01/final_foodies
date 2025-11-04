@@ -4,27 +4,61 @@ import { validationResult } from 'express-validator';
 import { generateToken } from '../middleware/auth.js';
 import cloudinary from '../config/cloudinary.js';
 
+// @desc    Test database connection
+// @route   GET /api/auth/test-db
+// @access  Public
+export const testDatabase = async (req, res) => {
+  try {
+    // Try to count users in database
+    const userCount = await User.countDocuments();
+    console.log('Database test - User count:', userCount);
+    
+    res.json({
+      status: 'success',
+      message: 'Database connection successful',
+      userCount,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Database test failed:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Database connection failed',
+      error: error.message
+    });
+  }
+};
+
 // @desc    Register user
 // @route   POST /api/auth/register
 // @access  Public
 export const register = async (req, res) => {
   try {
+    console.log('📝 Register request received:', {
+      body: { ...req.body, password: '***hidden***' },
+      timestamp: new Date().toISOString()
+    });
+
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      console.log('❌ Validation errors:', errors.array());
       return res.status(400).json({ status: 'error', errors: errors.array() });
     }
 
     const { name, email, phone, password, role } = req.body;
 
+    console.log('🔍 Checking if user exists with email:', email);
     // Check if user exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
+      console.log('❌ User already exists:', existingUser.email);
       return res.status(400).json({
         status: 'error',
         message: 'User already exists with this email',
       });
     }
 
+    console.log('✅ User does not exist, creating new user...');
     // Create user
     const user = await User.create({
       name,
@@ -32,6 +66,13 @@ export const register = async (req, res) => {
       phone,
       password,
       role,
+    });
+    
+    console.log('✅ User created successfully:', {
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role
     });
 
     // Generate token
@@ -47,13 +88,20 @@ export const register = async (req, res) => {
         phone: user.phone,
         role: user.role,
         kycStatus: user.kycStatus,
+        restaurantId: user.restaurantId,
       },
     });
   } catch (error) {
-    console.error('Register error:', error);
+    console.error('❌ Register error:', error);
+    console.error('❌ Error details:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
     res.status(500).json({
       status: 'error',
       message: 'Server error during registration',
+      error: error.message
     });
   }
 };
@@ -86,9 +134,10 @@ export const login = async (req, res) => {
     console.log('User found:', user ? 'Yes' : 'No');
 
     if (!user) {
+      console.log(`No user found with email: ${email}`);
       return res.status(401).json({
         status: 'error',
-        message: 'No user found with this email',
+        message: 'Invalid email or password',
       });
     }
 
@@ -114,9 +163,10 @@ export const login = async (req, res) => {
     console.log('Password match:', isMatch);
 
     if (!isMatch) {
+      console.log(`Incorrect password for user: ${email}`);
       return res.status(401).json({
         status: 'error',
-        message: 'Incorrect password',
+        message: 'Invalid email or password',
       });
     }
 
@@ -137,6 +187,7 @@ export const login = async (req, res) => {
       phone: user.phone,
       role: user.role,
       kycStatus: user.kycStatus,
+      restaurantId: user.restaurantId,
       wallet: user.wallet,
     };
 

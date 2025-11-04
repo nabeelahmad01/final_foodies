@@ -1,21 +1,17 @@
 // src/redux/slices/authSlice.js
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import mockApi from '../../services/mockApi';
 import api from '../../services/api';
 
-// Use mock API for development
-const isDevelopment = process.env.NODE_ENV === 'development';
-const apiClient = isDevelopment ? mockApi : api;
+// Always use real API - no more mock data
+const apiClient = api;
 
 // Async thunks
 export const login = createAsyncThunk(
   'auth/login',
   async ({ email, password }, { rejectWithValue }) => {
     try {
-      const response = isDevelopment 
-        ? (await apiClient.login({ email, password })).data
-        : (await apiClient.post('/auth/login', { email, password })).data;
+      const response = (await apiClient.post('/auth/login', { email, password })).data;
       
       if (response && response.token) {
         await AsyncStorage.setItem('userToken', response.token);
@@ -34,9 +30,7 @@ export const register = createAsyncThunk(
   'auth/register',
   async (userData, { rejectWithValue }) => {
     try {
-      const response = isDevelopment
-        ? await apiClient.register(userData)
-        : (await apiClient.post('/auth/register', userData)).data;
+      const response = (await apiClient.post('/auth/register', userData)).data;
       
       if (response && response.token) {
         await AsyncStorage.setItem('userToken', response.token);
@@ -67,50 +61,12 @@ export const loadUser = createAsyncThunk(
         return null;
       }
 
-      // In development, use mock API
-      if (isDevelopment) {
-        console.log('Using mock API for user data');
-        try {
-          const response = await mockApi.getUser();
-          return response;
-        } catch (mockError) {
-          console.error('Mock API error:', mockError);
-          // Fallback to a basic mock user if mock API fails
-          return { 
-            id: 'mock-user-id', 
-            _id: 'mock-user-id',
-            email: 'admin786@gmail.com', 
-            name: 'Rizwan',
-            phone: '031807371071',
-            role: 'restaurant',
-            kycStatus: 'pending',
-            isEmailVerified: true,
-            isPhoneVerified: true
-          };
-        }
-      }
-
-      // In production, call the real API
-      console.log('Fetching user data from API');
-      const response = await api.get('/auth/me');
-      return response.data;
+      // Always use real API
+      console.log('Fetching user data from real API');
+      const response = await apiClient.get('/auth/me');
+      return response.data.user;
     } catch (error) {
       console.error('Error in loadUser:', error);
-      // In development, return a mock user on error
-      if (isDevelopment) {
-        console.log('Falling back to mock user due to error');
-        return { 
-          id: 'mock-user-id', 
-          _id: 'mock-user-id',
-          email: 'admin786@gmail.com', 
-          name: 'Rizwan',
-          phone: '031807371071',
-          role: 'restaurant',
-          kycStatus: 'pending',
-          isEmailVerified: true,
-          isPhoneVerified: true
-        };
-      }
       return rejectWithValue(
         error.response?.data?.message || 'Failed to load user',
       );
@@ -169,6 +125,28 @@ const authSlice = createSlice({
         state.error = null;
       })
       .addCase(register.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload;
+      })
+      // Load User
+      .addCase(loadUser.pending, state => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(loadUser.fulfilled, (state, action) => {
+        if (action.payload) {
+          state.isAuthenticated = true;
+          state.user = action.payload;
+        } else {
+          state.isAuthenticated = false;
+          state.user = null;
+        }
+        state.isLoading = false;
+        state.error = null;
+      })
+      .addCase(loadUser.rejected, (state, action) => {
+        state.isAuthenticated = false;
+        state.user = null;
         state.isLoading = false;
         state.error = action.payload;
       })
