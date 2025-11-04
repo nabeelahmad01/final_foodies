@@ -14,20 +14,21 @@ const cartSlice = createSlice({
       const { item, restaurant } = action.payload;
 
       // Check if cart has items from different restaurant
-      if (state.restaurantId && state.restaurantId !== restaurant.id) {
+      if (state.restaurantId && state.restaurantId !== restaurant._id) {
         // Clear cart and start fresh
         state.items = [];
       }
 
-      state.restaurantId = restaurant.id;
+      state.restaurantId = restaurant._id;
       state.restaurantName = restaurant.name;
 
-      const existingItem = state.items.find(i => i.id === item.id);
+      const itemId = item._id || item.id;
+      const existingItem = state.items.find(i => i._id === itemId);
 
       if (existingItem) {
         existingItem.quantity += 1;
       } else {
-        state.items.push({ ...item, quantity: 1 });
+        state.items.push({ ...item, _id: itemId, quantity: 1 });
       }
 
       state.totalAmount = state.items.reduce(
@@ -37,11 +38,11 @@ const cartSlice = createSlice({
     },
     removeFromCart: (state, action) => {
       const itemId = action.payload;
-      const existingItem = state.items.find(i => i.id === itemId);
+      const existingItem = state.items.find(i => i._id === itemId);
 
       if (existingItem) {
         if (existingItem.quantity === 1) {
-          state.items = state.items.filter(i => i.id !== itemId);
+          state.items = state.items.filter(i => i._id !== itemId);
         } else {
           existingItem.quantity -= 1;
         }

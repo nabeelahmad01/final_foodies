@@ -38,12 +38,19 @@ const KYCStatusScreen = () => {
     
     switch (user?.kycStatus) {
       case KYC_STATUS.PENDING:
+        // Check if user has uploaded documents
+        const hasDocuments = user?.kycDocuments && user.kycDocuments.length > 0;
         return {
           title: 'KYC Under Review',
-          message: 'Your KYC documents are under review. This may take up to 24-48 hours.',
+          message: hasDocuments 
+            ? 'Your KYC documents are under review. This may take up to 24-48 hours. Please wait for approval.'
+            : 'Please upload your KYC documents to proceed.',
           icon: <MaterialIcons name="pending" size={80} color="#FFA500" />,
-          buttonText: 'Refresh Status',
-          showButton: true
+          buttonText: hasDocuments ? 'Refresh Status' : 'Upload Documents',
+          showButton: true,
+          onPress: hasDocuments 
+            ? () => dispatch(loadUser()) 
+            : () => navigation.navigate('KYCUpload')
         };
       case KYC_STATUS.APPROVED:
         const handleGetStarted = async () => {

@@ -5,7 +5,7 @@ const FormData = require('form-data');
 const fs = require('fs');
 const path = require('path');
 
-const API_URL = 'http://localhost:5000/api';
+const API_URL = 'http://localhost:5001/api';
 
 const testKYCUpload = async () => {
   console.log('🧪 Testing KYC Upload Endpoint...\n');
@@ -98,9 +98,9 @@ const testKYCUpload = async () => {
     // Step 4: Test with different API URLs
     console.log('\n4️⃣ Testing Different API URLs...');
     const testUrls = [
-      'http://localhost:5000/api',
-      'http://127.0.0.1:5000/api',
-      'http://192.168.0.43:5000/api'
+      'http://localhost:5001/api',
+      'http://127.0.0.1:5001/api',
+      'http://192.168.0.43:5001/api'
     ];
 
     for (const testUrl of testUrls) {

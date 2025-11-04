@@ -1,6 +1,6 @@
 // src/screens/auth/KYCUploadScreen.js
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as ImagePicker from 'expo-image-picker';
 import { useEffect, useState } from 'react';
 import {
@@ -275,12 +275,12 @@ const KYCUploadScreen = ({ navigation, route }) => {
       
       console.log(`Uploading ${filesToUpload.length} files...`);
       
-      // Always use real API - upload files one by one
+      // Upload files one by one using simplified approach
       try {
         let uploadCount = 0;
         
         for (const { file, fieldName } of filesToUpload) {
-          const singleFormData = new FormData();
+          console.log(`📤 Uploading ${fieldName}...`);
           
           // Determine file type
           let fileType = 'image/jpeg';
@@ -292,61 +292,82 @@ const KYCUploadScreen = ({ navigation, route }) => {
           
           const fileName = file.uri.split('/').pop() || `${fieldName}_${Date.now()}.jpg`;
           
-          // Use expo-file-system for reliable file upload
-          console.log('File details:', { uri: file.uri, type: fileType, name: fileName });
+          console.log('📋 File details:', { 
+            uri: file.uri, 
+            type: fileType, 
+            name: fileName,
+            fieldName: fieldName 
+          });
           
+          // Try FileSystem.uploadAsync first, then fallback to FormData
           try {
-            // Use FileSystem.uploadAsync which handles FormData properly
-            console.log('Using FileSystem.uploadAsync for reliable upload...');
+            console.log('🚀 Trying FileSystem.uploadAsync (legacy)...');
+            
+            const uploadOptions = {
+              fieldName: 'document', // Backend expects 'document' field
+              httpMethod: 'POST',
+              uploadType: FileSystem.FileSystemUploadType?.MULTIPART || 'multipart',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+              },
+            };
+            
+            console.log('📋 Upload options:', uploadOptions);
             
             const uploadResult = await FileSystem.uploadAsync(
               `${API_URL}/auth/upload-kyc`,
               file.uri,
-              {
-                fieldName: 'document',
-                httpMethod: 'POST',
-                uploadType: 'multipart',
-                headers: {
-                  'Authorization': `Bearer ${token}`,
-                },
-              }
+              uploadOptions
             );
             
-            console.log('FileSystem upload result:', uploadResult);
+            console.log('📊 Upload result:', {
+              status: uploadResult.status,
+              body: uploadResult.body ? uploadResult.body.substring(0, 200) + '...' : 'No body'
+            });
             
             if (uploadResult.status === 200 || uploadResult.status === 201) {
-              const responseData = JSON.parse(uploadResult.body);
-              console.log(`✅ Uploaded ${fieldName} successfully using FileSystem`);
-              uploadCount++;
-              continue; // Skip the axios call, we already uploaded
+              try {
+                const responseData = JSON.parse(uploadResult.body);
+                console.log(`✅ Uploaded ${fieldName} successfully via FileSystem`);
+                uploadCount++;
+              } catch (parseError) {
+                console.log('⚠️ Response parsing failed but upload seems successful');
+                uploadCount++;
+              }
             } else {
-              throw new Error(`Upload failed with status ${uploadResult.status}`);
+              throw new Error(`Upload failed with status ${uploadResult.status}: ${uploadResult.body}`);
             }
             
           } catch (fileSystemError) {
-            console.log('FileSystem upload failed, trying FormData method:', fileSystemError.message);
+            console.log(`⚠️ FileSystem upload failed for ${fieldName}, trying FormData fallback:`, fileSystemError.message);
             
-            // Fallback to FormData method
-            singleFormData.append('document', {
-              uri: file.uri,
-              type: fileType,
-              name: fileName,
-            });
+            // Fallback to FormData with axios
+            try {
+              console.log('🔄 Using FormData fallback...');
+              
+              const formData = new FormData();
+              formData.append('document', {
+                uri: file.uri,
+                type: fileType,
+                name: fileName,
+              });
+              
+              const response = await api.post('/auth/upload-kyc', formData, {
+                headers: {
+                  'Content-Type': 'multipart/form-data',
+                  'Authorization': `Bearer ${token}`,
+                },
+                timeout: 60000, // 60 second timeout
+              });
+              
+              console.log(`✅ Uploaded ${fieldName} successfully via FormData`);
+              uploadCount++;
+              
+            } catch (formDataError) {
+              console.error(`❌ Both FileSystem and FormData failed for ${fieldName}:`, formDataError.message);
+              throw formDataError;
+            }
           }
-          
-          console.log(`Uploading ${fieldName}:`, { fileName, fileType });
-          console.log('FormData keys:', singleFormData._parts ? singleFormData._parts.map(p => p[0]) : 'No _parts');
-          
-          const response = await api.post('/auth/upload-kyc', singleFormData, {
-            headers: {
-              // Don't set Content-Type - let React Native handle it automatically
-              'Authorization': `Bearer ${token}`,
-            },
-            timeout: 60000, // 60 second timeout for file uploads
-          });
-          
-          uploadCount++;
-          console.log(`✅ Uploaded ${fieldName} successfully (${uploadCount}/${filesToUpload.length})`);
         }
         
         console.log('All uploads successful!');
@@ -354,19 +375,22 @@ const KYCUploadScreen = ({ navigation, route }) => {
         // Update KYC status
         dispatch(updateUser({ kycStatus: 'pending' }));
         
-        // Show success message and navigate back
+        // Show success message and navigate to KYC status screen
         showSuccess(toast, `${uploadCount} document(s) uploaded successfully`);
-        navigation.goBack();
+        navigation.replace('KYCStatus'); // Use replace to prevent going back to upload
         
       } catch (error) {
-        console.error('Upload failed:', error);
-        console.error('Error details:', error.response?.data || error.message);
+        console.error('❌ Upload failed:', error);
+        console.error('❌ Error details:', error.response?.data || error.message);
         toast.show(
-          error.response?.data?.message || 'Failed to upload documents. Please try again.',
+          error.response?.data?.message || error.message || 'Failed to upload documents. Please try again.',
           'error'
         );
+      } finally {
+        setIsLoading(false);
       }
     } catch (error) {
+      console.error('❌ General upload error:', error);
       setIsLoading(false);
       handleApiError(error, toast);
     }

@@ -31,6 +31,7 @@ const RestaurantDetailScreen = ({ route, navigation }) => {
   const [confirmReplace, setConfirmReplace] = React.useState({ visible: false, item: null });
 
   useEffect(() => {
+    console.log('🏪 Fetching restaurant details for ID:', restaurant._id);
     dispatch(fetchRestaurantById(restaurant._id));
   }, [dispatch, restaurant._id]);
 useEffect(() => {
@@ -54,6 +55,12 @@ useEffect(() => {
   };
 
   const menuItems = selectedRestaurant?.menuItems || restaurant.menuItems || [];
+  
+  console.log('🍽️ Menu items:', {
+    selectedRestaurantMenus: selectedRestaurant?.menuItems?.length || 0,
+    restaurantMenus: restaurant.menuItems?.length || 0,
+    totalMenuItems: menuItems.length
+  });
 
   return (
     <View style={styles.container}>
@@ -112,34 +119,46 @@ useEffect(() => {
         <View style={styles.menuSection}>
           <Text style={styles.menuTitle}>{t('restaurant.menu')}</Text>
 
-          {menuItems.map(item => (
-            <View key={item._id} style={styles.menuItem}>
-              <View style={styles.menuItemInfo}>
-                <View style={styles.menuItemLeft}>
-                  <Image
-                    source={{
-                      uri: item.image || 'https://via.placeholder.com/80',
-                    }}
-                    style={styles.menuItemImage}
-                  />
-                </View>
-                <View style={styles.menuItemDetails}>
-                  <Text style={styles.menuItemName}>{item.name}</Text>
-                  <Text style={styles.menuItemDesc} numberOfLines={2}>
-                    {item.description}
-                  </Text>
-                  <Text style={styles.menuItemPrice}>Rs. {item.price}</Text>
-                </View>
-              </View>
-
-              <TouchableOpacity
-                style={styles.addButton}
-                onPress={() => handleAddToCart(item)}
-              >
-                <Icon name="add" size={20} color={colors.white} />
-              </TouchableOpacity>
+          {isLoading ? (
+            <View style={styles.loadingContainer}>
+              <Text style={styles.loadingText}>Loading menu...</Text>
             </View>
-          ))}
+          ) : menuItems.length > 0 ? (
+            menuItems.map(item => (
+              <View key={item._id} style={styles.menuItem}>
+                <View style={styles.menuItemInfo}>
+                  <View style={styles.menuItemLeft}>
+                    <Image
+                      source={{
+                        uri: item.image || 'https://via.placeholder.com/80',
+                      }}
+                      style={styles.menuItemImage}
+                    />
+                  </View>
+                  <View style={styles.menuItemDetails}>
+                    <Text style={styles.menuItemName}>{item.name}</Text>
+                    <Text style={styles.menuItemDesc} numberOfLines={2}>
+                      {item.description}
+                    </Text>
+                    <Text style={styles.menuItemPrice}>Rs. {item.price}</Text>
+                  </View>
+                </View>
+
+                <TouchableOpacity
+                  style={styles.addButton}
+                  onPress={() => handleAddToCart(item)}
+                >
+                  <Icon name="add" size={20} color={colors.white} />
+                </TouchableOpacity>
+              </View>
+            ))
+          ) : (
+            <View style={styles.emptyMenuContainer}>
+              <Icon name="restaurant-outline" size={60} color={colors.lightGray} />
+              <Text style={styles.emptyMenuText}>No menu items available</Text>
+              <Text style={styles.emptyMenuSubtext}>This restaurant hasn't added any menu items yet.</Text>
+            </View>
+          )}
         </View>
       </ScrollView>
       <ConfirmModal
@@ -293,6 +312,31 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 12,
+  },
+  loadingContainer: {
+    padding: 40,
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
+    color: colors.text.secondary,
+  },
+  emptyMenuContainer: {
+    padding: 40,
+    alignItems: 'center',
+  },
+  emptyMenuText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.text.primary,
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  emptyMenuSubtext: {
+    fontSize: 14,
+    color: colors.text.secondary,
+    marginTop: 8,
+    textAlign: 'center',
   },
 });
 

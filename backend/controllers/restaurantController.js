@@ -332,6 +332,11 @@ export const deleteRestaurant = async (req, res) => {
 // @access  Private (Restaurant owner)
 export const addMenuItem = async (req, res) => {
   try {
+    console.log('📋 Add menu item request:', {
+      body: req.body,
+      file: req.file ? { fieldname: req.file.fieldname, originalname: req.file.originalname, size: req.file.size } : 'No file'
+    });
+
     const restaurant = await Restaurant.findById(req.params.id);
 
     if (!restaurant) {
@@ -348,10 +353,39 @@ export const addMenuItem = async (req, res) => {
       });
     }
 
-    const menuItem = await MenuItem.create({
-      ...req.body,
+    // Prepare menu item data
+    const menuItemData = {
+      name: req.body.name,
+      description: req.body.description,
+      price: parseFloat(req.body.price),
+      category: req.body.category,
+      isAvailable: req.body.isAvailable === 'true',
       restaurantId: req.params.id,
-    });
+    };
+
+    // Handle image upload if file is provided
+    if (req.file) {
+      try {
+        // Import cloudinary here to avoid circular imports
+        const { v2: cloudinary } = await import('cloudinary');
+        
+        const result = await cloudinary.uploader.upload(req.file.path, {
+          folder: 'menu-items',
+          resource_type: 'auto',
+        });
+        
+        menuItemData.image = result.secure_url;
+        console.log('✅ Image uploaded to Cloudinary:', result.secure_url);
+      } catch (uploadError) {
+        console.error('❌ Cloudinary upload failed:', uploadError);
+        // Continue without image if upload fails
+        menuItemData.image = null;
+      }
+    }
+
+    console.log('📋 Creating menu item with data:', menuItemData);
+
+    const menuItem = await MenuItem.create(menuItemData);
 
     res.status(201).json({
       status: 'success',

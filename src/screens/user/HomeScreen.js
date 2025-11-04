@@ -4,7 +4,6 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   TouchableOpacity,
   TextInput,
   Image,
@@ -101,11 +100,39 @@ const HomeScreen = ({ navigation }) => {
     </TouchableOpacity>
   );
 
-  const renderContent = () => {
-    if (isLoading && !refreshing) {
+  const renderListHeader = () => (
+    <View>
+      {/* Categories */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Categories</Text>
+        <FlatList
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          data={CATEGORIES}
+          renderItem={renderCategory}
+          keyExtractor={item => item.id}
+          contentContainerStyle={styles.categoriesList}
+        />
+      </View>
+
+      {/* Restaurants Header */}
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Popular Restaurants</Text>
+          <TouchableOpacity>
+            <Text style={styles.seeAllText}>See All</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
+  );
+
+  const renderEmptyComponent = () => {
+    if (isLoading && restaurants.length === 0) {
       return (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.loadingText}>Loading restaurants...</Text>
         </View>
       );
     }
@@ -113,41 +140,20 @@ const HomeScreen = ({ navigation }) => {
     if (error) {
       return (
         <View style={styles.errorContainer}>
-          <Icon name="alert-circle" size={48} color={colors.danger} />
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity
-            style={styles.retryButton}
-            onPress={loadRestaurants}
-          >
-            <Text style={styles.retryButtonText}>Retry</Text>
-          </TouchableOpacity>
-        </View>
-      );
-    }
-
-    if (!restaurants?.length) {
-      return (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>No restaurants found</Text>
-          <TouchableOpacity
-            style={styles.retryButton}
-            onPress={loadRestaurants}
-          >
-            <Text style={styles.retryButtonText}>Refresh</Text>
+          <Icon name="alert-circle-outline" size={60} color={colors.error} />
+          <Text style={styles.errorText}>Failed to load restaurants</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={loadRestaurants}>
+            <Text style={styles.retryButtonText}>Try Again</Text>
           </TouchableOpacity>
         </View>
       );
     }
 
     return (
-      <FlatList
-        data={restaurants}
-        renderItem={renderRestaurant}
-        keyExtractor={item => item._id || Math.random().toString()}
-        numColumns={2}
-        columnWrapperStyle={styles.columnWrapper}
-        showsVerticalScrollIndicator={false}
-      />
+      <View style={styles.emptyContainer}>
+        <Icon name="restaurant-outline" size={60} color={colors.lightGray} />
+        <Text style={styles.emptyText}>No restaurants available</Text>
+      </View>
     );
   };
 
@@ -192,8 +198,16 @@ const HomeScreen = ({ navigation }) => {
         </View>
       </View>
 
-      <ScrollView
+      <FlatList
         style={styles.content}
+        data={restaurants}
+        renderItem={renderRestaurant}
+        keyExtractor={item => item._id || Math.random().toString()}
+        numColumns={2}
+        columnWrapperStyle={styles.columnWrapper}
+        showsVerticalScrollIndicator={false}
+        ListHeaderComponent={renderListHeader}
+        ListEmptyComponent={renderEmptyComponent}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -202,31 +216,8 @@ const HomeScreen = ({ navigation }) => {
             tintColor={colors.primary}
           />
         }
-      >
-        {/* Categories */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Categories</Text>
-          <FlatList
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            data={CATEGORIES}
-            renderItem={renderCategory}
-            keyExtractor={item => item.id}
-            contentContainerStyle={styles.categoriesList}
-          />
-        </View>
-
-        {/* Restaurants */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Popular Restaurants</Text>
-            <TouchableOpacity>
-              <Text style={styles.seeAllText}>See All</Text>
-            </TouchableOpacity>
-          </View>
-          {renderContent()}
-        </View>
-      </ScrollView>
+        contentContainerStyle={styles.flatListContent}
+      />
     </View>
   );
 };
@@ -306,6 +297,9 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+  },
+  flatListContent: {
+    paddingBottom: 20,
   },
   section: {
     paddingHorizontal: 20,

@@ -77,7 +77,12 @@ const restaurantSlice = createSlice({
       })
       .addCase(fetchRestaurantById.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.selectedRestaurant = action.payload;
+        // Handle both direct restaurant object and response with restaurant property
+        state.selectedRestaurant = action.payload?.restaurant || action.payload;
+        console.log('🏪 Restaurant fetched successfully:', {
+          hasMenuItems: state.selectedRestaurant?.menuItems?.length || 0,
+          restaurantName: state.selectedRestaurant?.name
+        });
       })
       .addCase(fetchRestaurantById.rejected, (state, action) => {
         state.isLoading = false;

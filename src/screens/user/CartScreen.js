@@ -81,8 +81,8 @@ const CartScreen = ({ navigation }) => {
 
         {/* Cart Items */}
         <View style={styles.itemsContainer}>
-          {items.map(item => (
-            <View key={item.id} style={styles.cartItem}>
+          {items.map((item, index) => (
+            <View key={item._id || item.id || index} style={styles.cartItem}>
               <Image
                 source={{ uri: item.image || 'https://via.placeholder.com/60' }}
                 style={styles.itemImage}
@@ -96,7 +96,7 @@ const CartScreen = ({ navigation }) => {
               <View style={styles.quantityContainer}>
                 <TouchableOpacity
                   style={styles.quantityButton}
-                  onPress={() => handleRemove(item.id)}
+                  onPress={() => handleRemove(item._id || item.id)}
                 >
                   <Icon name="remove" size={16} color={colors.primary} />
                 </TouchableOpacity>

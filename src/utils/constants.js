@@ -2,10 +2,11 @@
 // Use your computer's local IP address here
 // Make sure to update this with your actual local IP address
 // For Expo Go app - use your computer's WiFi IP
-export const API_URL = 'http://192.168.0.43:5000/api'; // Expo Go (WiFi IP)
+// For Expo Tunnel mode, use public tunnel URL
+export const API_URL = 'https://three-files-beg.loca.lt/api'; // Expo Tunnel mode via localtunnel
 // Alternative for different setups:
-// export const API_URL = 'http://10.0.2.2:5000/api'; // Android emulator only
-// export const API_URL = 'http://localhost:5000/api'; // iOS simulator only
+// export const API_URL = 'http://192.168.0.25:5001/api'; // Expo Go (WiFi IP)
+// export const API_URL = 'http://10.0.2.2:5001/api'; // Android emulator only
 
 export const ORDER_STATUS = {
   PENDING: 'pending',

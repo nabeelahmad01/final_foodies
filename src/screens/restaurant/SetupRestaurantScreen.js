@@ -3,16 +3,19 @@ import { View, Text, StyleSheet, TouchableOpacity, TextInput, ActivityIndicator,
 import Icon from 'react-native-vector-icons/Ionicons';
 import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
+import { useDispatch } from 'react-redux';
 import colors from '../../styles/colors';
 import { useToast } from '../../context.js/ToastContext';
 import { t, useLanguageRerender } from '../../utils/i18n';
 import { handleApiError, showSuccess } from '../../utils/helpers';
+import { updateUser } from '../../redux/slices/authSlice';
 import api from '../../services/api';
 import { MAPBOX_ACCESS_TOKEN } from '../../config/keys';
 
 const SetupRestaurantScreen = ({ navigation }) => {
   useLanguageRerender();
   const toast = useToast();
+  const dispatch = useDispatch();
   const [step, setStep] = useState(1);
   const [name, setName] = useState('');
   const [addressLabel, setAddressLabel] = useState('');
@@ -144,23 +147,57 @@ const SetupRestaurantScreen = ({ navigation }) => {
         coords: { lat: region.latitude, lng: region.longitude }
       });
       
+      // Extract city from address
+      const addressParts = addressLabel.trim().split(',').map(part => part.trim());
+      let city = 'Lahore'; // Default city
+      
+      // Try to find city from address parts
+      if (addressParts.length >= 2) {
+        // Look for common Pakistani cities or use second-to-last part
+        const possibleCity = addressParts[addressParts.length - 2];
+        const pakistaniCities = ['Lahore', 'Karachi', 'Islamabad', 'Rawalpindi', 'Faisalabad', 'Multan', 'Peshawar', 'Quetta'];
+        
+        // Check if any part contains a known city
+        for (const part of addressParts) {
+          for (const pkCity of pakistaniCities) {
+            if (part.toLowerCase().includes(pkCity.toLowerCase())) {
+              city = pkCity;
+              break;
+            }
+          }
+          if (city !== 'Lahore') break; // Found a city, stop searching
+        }
+        
+        // If no known city found, use the second-to-last part
+        if (city === 'Lahore' && possibleCity) {
+          city = possibleCity;
+        }
+      }
+      
+      console.log('Extracted city:', city, 'from address:', addressLabel);
+      
       // Real API call
       const response = await api.post('/restaurants', {
         name: name.trim(),
         address: addressLabel.trim(),
+        city: city,
         location: {
           type: 'Point',
           coordinates: [region.longitude, region.latitude]
         }
       });
       
-      // Navigate to MenuManagement with the created restaurant ID
+      // Get the created restaurant ID and update user data
       const restaurantId = response.data?.restaurant?._id || response.data?._id;
       console.log('Created restaurant ID:', restaurantId);
       
+      // Update user's restaurantId in Redux
+      dispatch(updateUser({ restaurantId }));
+      
       showSuccess(toast, 'Restaurant setup successful!');
       setLoading(false);
-      navigation.navigate('MenuManagement', { restaurantId });
+      // Navigate to RestaurantDashboard instead of MenuManagement
+      navigation.replace('RestaurantDashboard');
     } catch (error) {
       console.error('Error creating restaurant:', error);
       setLoading(false);

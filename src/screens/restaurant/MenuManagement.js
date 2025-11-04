@@ -96,13 +96,19 @@ const MenuManagement = ({ navigation, route }) => {
         name: cat
       }));
       
-      // Add default categories if none exist
+      // Add default categories if none exist (matching backend enum)
       if (categoriesData.length === 0) {
         categoriesData.push(
           { _id: 'cat_0', name: 'Main Course' },
-          { _id: 'cat_1', name: 'Appetizers' },
-          { _id: 'cat_2', name: 'Desserts' },
-          { _id: 'cat_3', name: 'Beverages' }
+          { _id: 'cat_1', name: 'Appetizer' },
+          { _id: 'cat_2', name: 'Dessert' },
+          { _id: 'cat_3', name: 'Beverage' },
+          { _id: 'cat_4', name: 'Side Dish' },
+          { _id: 'cat_5', name: 'Burger' },
+          { _id: 'cat_6', name: 'Pizza' },
+          { _id: 'cat_7', name: 'Fast Food' },
+          { _id: 'cat_8', name: 'Pakistani' },
+          { _id: 'cat_9', name: 'Chinese' }
         );
       }
       
@@ -112,12 +118,18 @@ const MenuManagement = ({ navigation, route }) => {
       }
     } catch (error) {
       console.error('Failed to fetch menu data:', error);
-      // Set default categories on error
+      // Set default categories on error (matching backend enum)
       const defaultCategories = [
         { _id: 'cat_0', name: 'Main Course' },
-        { _id: 'cat_1', name: 'Appetizers' },
-        { _id: 'cat_2', name: 'Desserts' },
-        { _id: 'cat_3', name: 'Beverages' }
+        { _id: 'cat_1', name: 'Appetizer' },
+        { _id: 'cat_2', name: 'Dessert' },
+        { _id: 'cat_3', name: 'Beverage' },
+        { _id: 'cat_4', name: 'Side Dish' },
+        { _id: 'cat_5', name: 'Burger' },
+        { _id: 'cat_6', name: 'Pizza' },
+        { _id: 'cat_7', name: 'Fast Food' },
+        { _id: 'cat_8', name: 'Pakistani' },
+        { _id: 'cat_9', name: 'Chinese' }
       ];
       setCategories(defaultCategories);
       setSelectedCategory(defaultCategories[0]);
@@ -220,6 +232,12 @@ const MenuManagement = ({ navigation, route }) => {
     }
   };
 
+  // Handle category selection
+  const handleSelectCategory = (category) => {
+    setSelectedCategory(category);
+    fetchMenuItems(category.name);
+  };
+
   // Handle logout
   const handleLogout = () => {
     dispatch(logout());
@@ -239,7 +257,7 @@ const MenuManagement = ({ navigation, route }) => {
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: 'images',
         quality: 0.8,
         allowsEditing: true,
         aspect: [4, 3],
@@ -275,7 +293,7 @@ const MenuManagement = ({ navigation, route }) => {
       }
 
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: 'images',
         quality: 0.8,
         allowsEditing: true,
         aspect: [4, 3],
@@ -354,7 +372,7 @@ const MenuManagement = ({ navigation, route }) => {
       form.append('name', formData.name.trim());
       form.append('description', formData.description.trim());
       form.append('price', parseFloat(formData.price));
-      form.append('category', selectedCategory._id);
+      form.append('category', selectedCategory.name);
       form.append('isAvailable', formData.isAvailable);
       
       if (formData.image && formData.image.uri) {
@@ -626,11 +644,11 @@ const MenuManagement = ({ navigation, route }) => {
         <FlatList
           data={categories}
           renderItem={renderCategoryItem}
-          keyExtractor={item => item._id}
+          keyExtractor={(item, index) => item._id || `category-${index}`}
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.categoriesList}
-          ListFooterComponent={renderAddCategoryButton()}
+          ListFooterComponent={renderAddCategoryButton}
         />
       </View>
 
@@ -641,7 +659,7 @@ const MenuManagement = ({ navigation, route }) => {
             <FlatList
               data={menuItems}
               renderItem={renderMenuItem}
-              keyExtractor={item => item._id}
+              keyExtractor={(item, index) => item._id || `menu-item-${index}`}
               contentContainerStyle={styles.menuList}
               refreshControl={
                 <RefreshControl

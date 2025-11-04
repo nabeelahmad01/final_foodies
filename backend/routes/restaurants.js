@@ -2,6 +2,7 @@
 import express from 'express';
 import * as restaurantController from '../controllers/restaurantController.js';
 import { protect, authorize } from '../middleware/auth.js';
+import upload from '../middleware/upload.js';
 
 const router = express.Router();
 
@@ -36,12 +37,14 @@ router.post(
   '/:id/menu',
   protect,
   authorize('restaurant'),
+  upload.single('image'), // Add multer middleware for file upload
   restaurantController.addMenuItem,
 );
 router.put(
   '/:id/menu/:itemId',
   protect,
   authorize('restaurant'),
+  upload.single('image'), // Add multer middleware for file upload
   restaurantController.updateMenuItem,
 );
 router.delete(
