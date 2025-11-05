@@ -10,6 +10,12 @@ const { sendPushNotification } = pushNotifications;
 // @access  Private
 export const createOrder = async (req, res) => {
   try {
+    console.log('📦 Create order request received:', {
+      body: req.body,
+      userId: req.user.id,
+      timestamp: new Date().toISOString()
+    });
+
     const {
       restaurantId,
       items,
@@ -19,18 +25,52 @@ export const createOrder = async (req, res) => {
       paymentMethod,
     } = req.body;
 
+    // Validate required fields
+    if (!restaurantId) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Restaurant ID is required',
+      });
+    }
+
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Order items are required',
+      });
+    }
+
+    if (!totalAmount || totalAmount <= 0) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Valid total amount is required',
+      });
+    }
+
+    if (!deliveryAddress) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Delivery address is required',
+      });
+    }
+
     // Validate payment method
     if (paymentMethod === 'wallet') {
       const user = await User.findById(req.user.id);
+      console.log('💰 User wallet balance:', user.wallet.balance, 'Required:', totalAmount);
+      
       if (user.wallet.balance < totalAmount) {
+        console.log('❌ Insufficient wallet balance');
         return res.status(400).json({
           status: 'error',
           message: 'Insufficient wallet balance',
         });
       }
 
+      console.log('💳 Deducting from wallet...');
       // Deduct from wallet
       await user.updateWallet(totalAmount, 'debit', `Order payment`);
+      console.log('✅ Wallet updated successfully');
     }
 
     // Calculate estimated delivery time
@@ -57,27 +97,50 @@ export const createOrder = async (req, res) => {
     const io = req.app.get('io');
     io.emit('newOrder', { restaurantId, orderId: order._id });
 
+    // Send notification to restaurant
+    const restaurant = await Restaurant.findById(restaurantId).populate('ownerId');
+    await sendPushNotification(
+      restaurant.ownerId._id,
+      'New Order! 🎉',
+      `Order #${order._id.toString().slice(-6)} received`,
+      { type: 'restaurant_order', orderId: order._id },
+    );
+
+    console.log('✅ Order created successfully:', {
+      orderId: order._id,
+      userId: order.userId,
+      restaurantId: order.restaurantId,
+      totalAmount: order.totalAmount,
+      itemsCount: order.items.length
+    });
+
+    console.log('📱 Push notification sent to restaurant:', {
+      restaurantId: restaurant._id,
+      ownerId: restaurant.ownerId._id,
+      message: `Order #${order._id.toString().slice(-6)} received`
+    });
+
+    console.log('🔔 Socket event emitted:', {
+      event: 'newOrder',
+      data: { restaurantId, orderId: order._id }
+    });
+
     res.status(201).json({
       status: 'success',
       order,
     });
   } catch (error) {
-    console.error('Create order error:', error);
+    console.error('❌ Create order error:', error);
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
     res.status(500).json({
       status: 'error',
-      message: 'Failed to create order',
+      message: error.message || 'Failed to create order',
     });
   }
-  // Send notification to restaurant
-  const restaurant = await Restaurant.findById(restaurantId).populate(
-    'ownerId',
-  );
-  await sendPushNotification(
-    restaurant.ownerId._id,
-    'New Order! 🎉',
-    `Order #${order._id.slice(-6)} received`,
-    { type: 'restaurant_order', orderId: order._id },
-  );
 };
 
 // @desc    Get user's orders
@@ -141,6 +204,222 @@ export const getOrderById = async (req, res) => {
       message: 'Failed to fetch order',
     });
   }
+};
+
+// @desc    Track order
+// @route   GET /api/orders/:id/track
+// @access  Private
+// @desc    Find nearby riders and send order notifications
+// @route   POST /api/orders/:id/find-riders
+// @access  Private (Restaurant owner)
+export const findNearbyRiders = async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id).populate('restaurantId');
+    
+    if (!order) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Order not found',
+      });
+    }
+
+    // Get restaurant location
+    const restaurantLocation = order.restaurantId.location.coordinates;
+    const [restaurantLng, restaurantLat] = restaurantLocation;
+
+    // Find riders within 4km radius
+    const nearbyRiders = await User.find({
+      role: 'rider',
+      isActive: true,
+      'location.coordinates': {
+        $near: {
+          $geometry: {
+            type: 'Point',
+            coordinates: restaurantLocation
+          },
+          $maxDistance: 4000 // 4km in meters
+        }
+      }
+    }).limit(10);
+
+    console.log(`Found ${nearbyRiders.length} nearby riders for order ${order._id}`);
+
+    // Send notifications to nearby riders with sound
+    const io = req.app.get('io');
+    
+    for (const rider of nearbyRiders) {
+      // Emit real-time notification with sound
+      io.to(`rider_${rider._id}`).emit('newOrderAvailable', {
+        orderId: order._id,
+        restaurantName: order.restaurantId.name,
+        deliveryAddress: order.deliveryAddress,
+        totalAmount: order.totalAmount,
+        distance: calculateDistance(
+          restaurantLat, restaurantLng,
+          rider.location?.coordinates?.[1] || 0,
+          rider.location?.coordinates?.[0] || 0
+        ),
+        playSound: true,
+        estimatedEarning: Math.round(order.totalAmount * 0.15), // 15% commission
+      });
+
+      // Send push notification
+      await sendPushNotification(
+        rider._id,
+        'New Delivery Available! 🚴‍♂️',
+        `${order.restaurantId.name} - Rs.${order.totalAmount}`,
+        { 
+          type: 'rider_order_available', 
+          orderId: order._id,
+          sound: 'notification_sound.mp3'
+        },
+      );
+    }
+
+    // Update order status to looking for rider
+    order.status = 'looking_for_rider';
+    await order.save();
+
+    res.json({
+      status: 'success',
+      message: `Notified ${nearbyRiders.length} nearby riders`,
+      ridersNotified: nearbyRiders.length,
+    });
+  } catch (error) {
+    console.error('Find riders error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to find nearby riders',
+    });
+  }
+};
+
+// @desc    Assign rider to order
+// @route   POST /api/orders/:id/assign-rider
+// @access  Private (Rider)
+export const assignRider = async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id).populate('restaurantId userId');
+    
+    if (!order) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Order not found',
+      });
+    }
+
+    // Check if order already has a rider
+    if (order.riderId) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Order already assigned to another rider',
+      });
+    }
+
+    // Assign rider to order
+    order.riderId = req.user.id;
+    order.status = 'out_for_delivery';
+    await order.save();
+
+    const io = req.app.get('io');
+    
+    // Notify customer about rider assignment
+    io.to(`order_${order._id}`).emit('riderAssigned', {
+      orderId: order._id,
+      riderId: req.user.id,
+      riderName: req.user.name,
+      riderPhone: req.user.phone,
+    });
+
+    // Cancel notifications for other riders
+    io.emit('orderTaken', { orderId: order._id });
+
+    // Send notification to customer
+    await sendPushNotification(
+      order.userId._id,
+      'Rider Assigned! 🚴‍♂️',
+      `${req.user.name} will deliver your order`,
+      { type: 'rider_assigned', orderId: order._id },
+    );
+
+    res.json({
+      status: 'success',
+      message: 'Order assigned successfully',
+      order,
+    });
+  } catch (error) {
+    console.error('Assign rider error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to assign rider',
+    });
+  }
+};
+
+// @desc    Update rider location
+// @route   PUT /api/orders/:id/rider-location
+// @access  Private (Rider)
+export const updateRiderLocation = async (req, res) => {
+  try {
+    const { latitude, longitude } = req.body;
+    const order = await Order.findById(req.params.id);
+    
+    if (!order || order.riderId.toString() !== req.user.id) {
+      return res.status(403).json({
+        status: 'error',
+        message: 'Not authorized to update this order',
+      });
+    }
+
+    // Update rider's current location
+    await User.findByIdAndUpdate(req.user.id, {
+      'location.coordinates': [longitude, latitude],
+      lastLocationUpdate: new Date(),
+    });
+
+    // Calculate ETA based on distance and average speed (25 km/h)
+    const deliveryDistance = calculateDistance(
+      latitude, longitude,
+      order.deliveryCoordinates.latitude,
+      order.deliveryCoordinates.longitude
+    );
+    const estimatedTime = Math.round((deliveryDistance / 25) * 60); // minutes
+
+    const io = req.app.get('io');
+    
+    // Send live location update to customer
+    io.to(`order_${order._id}`).emit('riderLocationUpdate', {
+      orderId: order._id,
+      location: { latitude, longitude },
+      estimatedTime,
+      distance: deliveryDistance,
+    });
+
+    res.json({
+      status: 'success',
+      message: 'Location updated successfully',
+      estimatedTime,
+    });
+  } catch (error) {
+    console.error('Update location error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to update location',
+    });
+  }
+};
+
+// Helper function to calculate distance between two coordinates
+const calculateDistance = (lat1, lon1, lat2, lon2) => {
+  const R = 6371; // Earth's radius in km
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLon = (lon2 - lon1) * (Math.PI / 180);
+  const a = 
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c; // Distance in km
 };
 
 // @desc    Track order

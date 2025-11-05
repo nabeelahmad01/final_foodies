@@ -1,5 +1,5 @@
 // src/screens/user/OrderTrackingScreen.js
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,24 +7,39 @@ import {
   TouchableOpacity,
   ScrollView,
   Linking,
+  Animated,
+  Alert,
+  Platform,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import Icon from 'react-native-vector-icons/Ionicons';
-import MapView, { Marker, Polyline } from 'react-native-maps';
+import MapComponent, { Marker, Polyline } from '../../components/MapComponent';
 import { trackOrder, updateOrderStatus } from '../../redux/slices/orderSlice';
 import { ORDER_STATUS } from '../../utils/constants';
 import colors from '../../styles/colors';
 import io from 'socket.io-client';
 import { API_URL } from '../../utils/constants';
+import { Audio } from 'expo-audio';
+import * as Location from 'expo-location';
+import { initializeSound, playNotificationSound, cleanupSound } from '../../utils/soundUtils';
 
 const OrderTrackingScreen = ({ route, navigation }) => {
   const { orderId } = route.params;
   const dispatch = useDispatch();
   const { trackingOrder } = useSelector(state => state.order);
   const [socket, setSocket] = useState(null);
+  const [riderLocation, setRiderLocation] = useState(null);
+  const [estimatedTime, setEstimatedTime] = useState(null);
+  const [orderStatus, setOrderStatus] = useState('pending');
+  const mapRef = useRef(null);
+  const riderMarkerRef = useRef(null);
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const bikeRotation = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     dispatch(trackOrder(orderId));
+    initializeSound();
+    startPulseAnimation();
 
     // Connect to Socket.IO for real-time updates
     const newSocket = io(API_URL.replace('/api', ''));
@@ -32,16 +47,130 @@ const OrderTrackingScreen = ({ route, navigation }) => {
 
     newSocket.emit('joinOrder', orderId);
 
-    newSocket.on('orderUpdate', data => {
-      dispatch(
-        updateOrderStatus({ orderId: data.orderId, status: data.status }),
-      );
+    // Listen for order status updates
+    newSocket.on('orderUpdate', (data) => {
+      console.log('Order update received:', data);
+      dispatch(updateOrderStatus({ orderId: data.orderId, status: data.status }));
+      setOrderStatus(data.status);
+      playNotificationSound();
+      
+      if (data.status === 'accepted') {
+        Alert.alert('Order Accepted! 🎉', 'Your order has been accepted by the restaurant.');
+      } else if (data.status === 'out_for_delivery') {
+        Alert.alert('On the Way! 🚴‍♂️', 'Your order is out for delivery.');
+      }
+    });
+
+    // Listen for rider location updates
+    newSocket.on('riderLocationUpdate', (data) => {
+      console.log('Rider location update:', data);
+      if (data.orderId === orderId) {
+        setRiderLocation(data.location);
+        setEstimatedTime(data.estimatedTime);
+        animateRiderMovement(data.location);
+      }
+    });
+
+    // Listen for rider assignment
+    newSocket.on('riderAssigned', (data) => {
+      console.log('Rider assigned:', data);
+      if (data.orderId === orderId) {
+        playNotificationSound();
+        Alert.alert('Rider Assigned! 🚴‍♂️', `${data.riderName} will deliver your order.`);
+      }
     });
 
     return () => {
       newSocket.disconnect();
+      cleanupSound();
     };
   }, [dispatch, orderId]);
+
+  // Start pulse animation for rider marker
+  const startPulseAnimation = () => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.3,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  };
+
+  // Animate rider movement
+  const animateRiderMovement = (newLocation) => {
+    if (riderMarkerRef.current && riderLocation) {
+      // Calculate bearing for bike rotation
+      const bearing = calculateBearing(riderLocation, newLocation);
+      
+      Animated.timing(bikeRotation, {
+        toValue: bearing,
+        duration: 500,
+        useNativeDriver: true,
+      }).start();
+
+      // Animate marker to new position
+      riderMarkerRef.current.animateMarkerToCoordinate(newLocation, 500);
+    }
+  };
+
+  // Calculate bearing between two coordinates
+  const calculateBearing = (start, end) => {
+    const startLat = start.latitude * (Math.PI / 180);
+    const startLng = start.longitude * (Math.PI / 180);
+    const endLat = end.latitude * (Math.PI / 180);
+    const endLng = end.longitude * (Math.PI / 180);
+
+    const dLng = endLng - startLng;
+    const y = Math.sin(dLng) * Math.cos(endLat);
+    const x = Math.cos(startLat) * Math.sin(endLat) - Math.sin(startLat) * Math.cos(endLat) * Math.cos(dLng);
+
+    let bearing = Math.atan2(y, x) * (180 / Math.PI);
+    return (bearing + 360) % 360;
+  };
+
+  // Format ETA display
+  const formatETA = (minutes) => {
+    if (!minutes) return 'Calculating...';
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    
+    if (hours > 0) {
+      return `${hours}h ${mins}m`;
+    }
+    return `${mins} min`;
+  };
+
+  // Custom map style for app theme
+  const customMapStyle = [
+    {
+      featureType: 'all',
+      elementType: 'geometry.fill',
+      stylers: [{ color: '#f5f5f5' }]
+    },
+    {
+      featureType: 'road',
+      elementType: 'geometry',
+      stylers: [{ color: '#ffffff' }]
+    },
+    {
+      featureType: 'road',
+      elementType: 'geometry.stroke',
+      stylers: [{ color: colors.border }]
+    },
+    {
+      featureType: 'water',
+      elementType: 'geometry',
+      stylers: [{ color: colors.primary + '30' }]
+    }
+  ];
 
   if (!trackingOrder) {
     return (
@@ -54,7 +183,8 @@ const OrderTrackingScreen = ({ route, navigation }) => {
           <View style={{ width: 24 }} />
         </View>
         <View style={styles.loadingContainer}>
-          <Text>Loading order details...</Text>
+          <Animated.View style={[styles.loadingDot, { transform: [{ scale: pulseAnim }] }]} />
+          <Text style={styles.loadingText}>Loading order details...</Text>
         </View>
       </View>
     );
@@ -108,7 +238,7 @@ const OrderTrackingScreen = ({ route, navigation }) => {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
+      {/* Header with Status */}
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
@@ -116,38 +246,136 @@ const OrderTrackingScreen = ({ route, navigation }) => {
         >
           <Icon name="arrow-back" size={24} color={colors.white} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Track Order</Text>
-        <View style={styles.placeholder} />
+        <View style={styles.headerCenter}>
+          <Text style={styles.headerTitle}>Track Order</Text>
+          <Text style={styles.headerSubtitle}>
+            {orderStatus === 'pending' && 'Waiting for restaurant confirmation'}
+            {orderStatus === 'accepted' && 'Restaurant is preparing your order'}
+            {orderStatus === 'preparing' && 'Your order is being prepared'}
+            {orderStatus === 'out_for_delivery' && 'Rider is on the way'}
+            {orderStatus === 'delivered' && 'Order delivered successfully!'}
+          </Text>
+        </View>
+        <View style={styles.etaContainer}>
+          <Text style={styles.etaText}>{formatETA(estimatedTime)}</Text>
+        </View>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Map View */}
+        {/* Enhanced Map View */}
         <View style={styles.mapContainer}>
-          <MapView
+          <MapComponent
+            ref={mapRef}
             style={styles.map}
+            customMapStyle={customMapStyle}
             initialRegion={{
-              latitude: 31.4952,
-              longitude: 74.3157,
-              latitudeDelta: 0.1,
-              longitudeDelta: 0.1,
+              latitude: trackingOrder.deliveryCoordinates?.latitude || 31.4952,
+              longitude: trackingOrder.deliveryCoordinates?.longitude || 74.3157,
+              latitudeDelta: 0.02,
+              longitudeDelta: 0.02,
             }}
+            showsUserLocation={true}
+            showsMyLocationButton={false}
+            showsCompass={false}
+            toolbarEnabled={false}
           >
+            {/* Restaurant Marker */}
             <Marker
-              coordinate={restaurantLocation}
-              title="Restaurant"
-              pinColor={colors.primary}
-            />
+              coordinate={{
+                latitude: trackingOrder.restaurantId?.location?.coordinates?.[1] || restaurantLocation.latitude,
+                longitude: trackingOrder.restaurantId?.location?.coordinates?.[0] || restaurantLocation.longitude,
+              }}
+              title={trackingOrder.restaurantId?.name || "Restaurant"}
+              description="Your order is being prepared here"
+            >
+              <View style={styles.restaurantMarker}>
+                <Icon name="restaurant" size={20} color={colors.white} />
+              </View>
+            </Marker>
+
+            {/* Delivery Location Marker */}
             <Marker
-              coordinate={deliveryLocation}
-              title="Your Location"
-              pinColor={colors.success}
-            />
-            <Polyline
-              coordinates={[restaurantLocation, deliveryLocation]}
-              strokeColor={colors.primary}
-              strokeWidth={3}
-            />
-          </MapView>
+              coordinate={{
+                latitude: trackingOrder.deliveryCoordinates?.latitude || deliveryLocation.latitude,
+                longitude: trackingOrder.deliveryCoordinates?.longitude || deliveryLocation.longitude,
+              }}
+              title="Delivery Location"
+              description="Your order will be delivered here"
+            >
+              <View style={styles.deliveryMarker}>
+                <Icon name="home" size={20} color={colors.white} />
+              </View>
+            </Marker>
+
+            {/* Animated Rider Marker */}
+            {riderLocation && (
+              <Marker
+                ref={riderMarkerRef}
+                coordinate={riderLocation}
+                title={trackingOrder.riderId?.name || "Delivery Rider"}
+                description="Your delivery rider"
+                anchor={{ x: 0.5, y: 0.5 }}
+              >
+                <Animated.View 
+                  style={[
+                    styles.riderMarker,
+                    {
+                      transform: [
+                        { scale: pulseAnim },
+                        { rotate: `${bikeRotation._value}deg` }
+                      ]
+                    }
+                  ]}
+                >
+                  <Icon name="bicycle" size={24} color={colors.white} />
+                </Animated.View>
+              </Marker>
+            )}
+
+            {/* Route Polyline */}
+            {riderLocation && (
+              <Polyline
+                coordinates={[
+                  orderStatus === 'out_for_delivery' 
+                    ? riderLocation 
+                    : {
+                        latitude: trackingOrder.restaurantId?.location?.coordinates?.[1] || restaurantLocation.latitude,
+                        longitude: trackingOrder.restaurantId?.location?.coordinates?.[0] || restaurantLocation.longitude,
+                      },
+                  {
+                    latitude: trackingOrder.deliveryCoordinates?.latitude || deliveryLocation.latitude,
+                    longitude: trackingOrder.deliveryCoordinates?.longitude || deliveryLocation.longitude,
+                  }
+                ]}
+                strokeColor={colors.primary}
+                strokeWidth={4}
+                strokePattern={[1, 1]}
+              />
+            )}
+          </MapComponent>
+          
+          {/* Map Overlay - Order Status */}
+          <View style={styles.mapOverlay}>
+            <View style={styles.statusBadge}>
+              <Icon 
+                name={
+                  orderStatus === 'pending' ? 'time' :
+                  orderStatus === 'accepted' ? 'checkmark-circle' :
+                  orderStatus === 'preparing' ? 'restaurant' :
+                  orderStatus === 'out_for_delivery' ? 'bicycle' : 'checkmark-done-circle'
+                } 
+                size={16} 
+                color={colors.white} 
+              />
+              <Text style={styles.statusText}>
+                {orderStatus === 'pending' && 'Order Placed'}
+                {orderStatus === 'accepted' && 'Accepted'}
+                {orderStatus === 'preparing' && 'Preparing'}
+                {orderStatus === 'out_for_delivery' && 'On the Way'}
+                {orderStatus === 'delivered' && 'Delivered'}
+              </Text>
+            </View>
+          </View>
         </View>
 
         {/* Order Status Timeline */}
@@ -220,47 +448,69 @@ const OrderTrackingScreen = ({ route, navigation }) => {
           </View>
         </View>
 
-        {/* Rider Info */}
+        {/* Enhanced Rider Info */}
         {trackingOrder.riderId && (
           <View style={styles.riderCard}>
-            <View style={styles.riderInfo}>
-              <View style={styles.riderAvatar}>
-                <Icon name="person" size={24} color={colors.white} />
+            <View style={styles.riderHeader}>
+              <View style={styles.riderInfo}>
+                <View style={styles.riderAvatar}>
+                  <Icon name="person" size={24} color={colors.white} />
+                </View>
+                <View style={styles.riderDetails}>
+                  <Text style={styles.riderName}>
+                    {trackingOrder.riderId.name || 'Delivery Rider'}
+                  </Text>
+                  <Text style={styles.riderVehicle}>🏍️ Motorcycle • ABC-123</Text>
+                  <Text style={styles.riderETA}>ETA: {formatETA(estimatedTime)}</Text>
+                </View>
               </View>
-              <View style={styles.riderDetails}>
-                <Text style={styles.riderName}>
-                  {trackingOrder.riderId.name || 'Delivery Rider'}
-                </Text>
-                <Text style={styles.riderVehicle}>Motorcycle • ABC-123</Text>
+              <View style={styles.riderActions}>
+                <TouchableOpacity
+                  style={styles.riderActionButton}
+                  onPress={handleCallRider}
+                >
+                  <Icon name="call" size={20} color={colors.primary} />
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={styles.riderActionButton}
+                  onPress={() =>
+                    navigation.navigate('ChatScreen', {
+                      orderId: trackingOrder._id,
+                      receiverName: trackingOrder.riderId?.name || 'Rider',
+                    })
+                  }
+                >
+                  <Icon name="chatbubble" size={20} color={colors.primary} />
+                </TouchableOpacity>
               </View>
             </View>
-            <View style={styles.riderActions}>
-              <TouchableOpacity
-                style={styles.riderActionButton}
-                onPress={handleCallRider}
-              >
-                <Icon name="call" size={20} color={colors.primary} />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.riderActionButton}>
-                <Icon name="chatbubble" size={20} color={colors.primary} />
-              </TouchableOpacity>
-              // In OrderTrackingScreen.js, add this button:
-              <TouchableOpacity
-                style={styles.chatButton}
-                onPress={() =>
-                  navigation.navigate('ChatScreen', {
-                    orderId: order._id,
-                    receiverName: order.riderId?.name || 'Rider',
-                  })
+            
+            {/* Live Tracking Status */}
+            <View style={styles.trackingStatus}>
+              <View style={styles.trackingDot} />
+              <Text style={styles.trackingText}>
+                {orderStatus === 'out_for_delivery' 
+                  ? 'Live tracking active • Rider is moving' 
+                  : orderStatus === 'preparing'
+                  ? 'Rider will be assigned soon'
+                  : 'Waiting for rider assignment'
                 }
-              >
-                <Icon name="chatbubbles" size={20} color={colors.white} />
-                <Text style={styles.chatButtonText}>Chat with Rider</Text>
-              </TouchableOpacity>
-              ;
+              </Text>
             </View>
           </View>
         )}
+
+        {/* Quick Actions */}
+        <View style={styles.quickActions}>
+          <TouchableOpacity style={styles.actionButton}>
+            <Icon name="call" size={20} color={colors.primary} />
+            <Text style={styles.actionText}>Call Restaurant</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.actionButton}>
+            <Icon name="help-circle" size={20} color={colors.primary} />
+            <Text style={styles.actionText}>Need Help?</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </View>
   );
@@ -288,25 +538,126 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  headerCenter: {
+    flex: 1,
+    alignItems: 'center',
+  },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
     color: colors.white,
   },
-  placeholder: {
-    width: 40,
+  headerSubtitle: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginTop: 2,
+  },
+  etaContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  etaText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: colors.white,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
+  loadingDot: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: colors.primary,
+    marginBottom: 16,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: colors.text.secondary,
+  },
   mapContainer: {
-    height: 250,
+    height: 300,
     backgroundColor: colors.lightGray,
+    position: 'relative',
   },
   map: {
     flex: 1,
+  },
+  mapOverlay: {
+    position: 'absolute',
+    top: 16,
+    left: 16,
+    right: 16,
+    flexDirection: 'row',
+    justifyContent: 'center',
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  statusText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: colors.white,
+    marginLeft: 8,
+  },
+  restaurantMarker: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: colors.white,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  deliveryMarker: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.success,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: colors.white,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  riderMarker: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: colors.warning,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: colors.white,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
   },
   timelineContainer: {
     backgroundColor: colors.white,
@@ -388,12 +739,19 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     marginTop: 16,
     marginHorizontal: 16,
-    marginBottom: 24,
     borderRadius: 16,
     padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  riderHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 16,
   },
   riderInfo: {
     flexDirection: 'row',
@@ -421,6 +779,12 @@ const styles = StyleSheet.create({
   riderVehicle: {
     fontSize: 12,
     color: colors.text.secondary,
+    marginBottom: 2,
+  },
+  riderETA: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.primary,
   },
   riderActions: {
     flexDirection: 'row',
@@ -433,6 +797,52 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  trackingStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  trackingDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.success,
+    marginRight: 8,
+  },
+  trackingText: {
+    fontSize: 12,
+    color: colors.text.secondary,
+    flex: 1,
+  },
+  quickActions: {
+    flexDirection: 'row',
+    marginTop: 16,
+    marginHorizontal: 16,
+    marginBottom: 24,
+    gap: 12,
+  },
+  actionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.white,
+    paddingVertical: 16,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  actionText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primary,
+    marginLeft: 8,
   },
 });
 

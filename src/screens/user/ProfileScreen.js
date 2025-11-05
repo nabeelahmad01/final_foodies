@@ -104,6 +104,13 @@ const ProfileScreen = ({ navigation }) => {
       subtitle: t('profile.language'),
       onPress: () => setShowLanguageModal(true),
     },
+    // Development testing option
+    ...((__DEV__ || process.env.NODE_ENV === 'development') ? [{
+      icon: 'bug-outline',
+      title: '🧪 Testing Dashboard',
+      subtitle: 'Web-compatible testing tools',
+      onPress: () => navigation.navigate('WebTesting'),
+    }] : []),
   ];
 
   return (

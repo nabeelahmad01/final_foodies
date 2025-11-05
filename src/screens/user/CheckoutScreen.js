@@ -25,6 +25,10 @@ const CheckoutScreen = ({ navigation, route }) => {
   useLanguageRerender();
   const dispatch = useDispatch();
   const toast = useToast();
+  
+  // Debug: Check if createOrder is properly imported
+  console.log('createOrder function type:', typeof createOrder);
+  console.log('createOrder function:', createOrder);
   const { items, totalAmount, restaurantId } = useSelector(state => state.cart);
   const [paymentMethod, setPaymentMethod] = useState(PAYMENT_METHODS.WALLET);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -57,27 +61,61 @@ const CheckoutScreen = ({ navigation, route }) => {
 
   const createOrderInDB = async () => {
     try {
+      // Validate we have required data
+      if (!restaurantId) {
+        toast.show('Restaurant not selected', 'error');
+        return;
+      }
+      
+      if (!items || items.length === 0) {
+        toast.show('No items in cart', 'error');
+        return;
+      }
+
+      console.log('Creating order with data:', {
+        restaurantId,
+        itemsCount: items.length,
+        totalAmount: grandTotal,
+        paymentMethod,
+        selectedAddress
+      });
+
       const orderData = {
         restaurantId,
         items: items.map(item => ({
-          menuItemId: item.id,
+          menuItemId: item._id || item.id, // Fix: Use _id first, fallback to id
           name: item.name,
           quantity: item.quantity,
           price: item.price,
         })),
         totalAmount: grandTotal,
         deliveryAddress: selectedAddress?.address || 'Home - Johar Town, Lahore',
-        deliveryCoords: selectedAddress?.coords || undefined,
+        deliveryCoordinates: selectedAddress?.coords ? {
+          latitude: selectedAddress.coords.latitude,
+          longitude: selectedAddress.coords.longitude,
+        } : {
+          latitude: 31.4697, // Default Lahore coordinates
+          longitude: 74.2728,
+        },
         promoCode: promo.code || undefined,
         paymentMethod,
       };
 
+      console.log('Order data prepared:', orderData);
+
       const result = await dispatch(createOrder(orderData)).unwrap();
+
+      console.log('Order creation result:', result);
 
       setIsProcessing(false);
       dispatch(clearCart());
       showSuccess(toast, t('checkout.orderPlaced'));
-      navigation.replace('OrderTracking', { orderId: result._id });
+      
+      // Handle different response structures
+      const orderId = result.order?._id || result._id || result.orderId;
+      console.log('Navigating to OrderTracking with orderId:', orderId);
+      
+      navigation.replace('OrderTracking', { orderId });
     } catch (error) {
       setIsProcessing(false);
       handleApiError(error, toast);

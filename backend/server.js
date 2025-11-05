@@ -58,6 +58,7 @@ import paymentRoutes from './routes/payments.js';
 import promoCodeRoutes from './routes/promoCodes.js';
 import restaurantRoutes from './routes/restaurants.js';
 import reviewRoutes from './routes/reviews.js';
+import riderRoutes from './routes/riders.js';
 import userRoutes from './routes/users.js';
 const { globalErrorHandler, notFound, catchAsync } = errorMiddleware;
 
@@ -193,6 +194,7 @@ app.use('/api/promo-codes', promoCodeRoutes);
 app.use('/api/favorites', favoritesRoutes);
 app.use('/api/addresses', addressesRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/riders', riderRoutes);
 
 // Root route
 app.get('/', (req, res) => {

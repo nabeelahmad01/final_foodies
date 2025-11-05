@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
+import MapComponent, { Marker } from '../../components/MapComponent';
 import * as Location from 'expo-location';
 import colors from '../../styles/colors';
 import { useToast } from '../../context.js/ToastContext';
@@ -74,9 +74,9 @@ const AddressPickerScreen = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      <MapView style={StyleSheet.absoluteFill} initialRegion={region} onRegionChangeComplete={setRegion}>
+      <MapComponent style={StyleSheet.absoluteFill} initialRegion={region} onRegionChangeComplete={setRegion}>
         <Marker coordinate={{ latitude: region.latitude, longitude: region.longitude }} />
-      </MapView>
+      </MapComponent>
       <View style={styles.footer}>
         <TouchableOpacity style={styles.confirmBtn} onPress={confirm}>
           <Text style={styles.confirmText}>Use This Location</Text>

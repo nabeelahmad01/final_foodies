@@ -94,6 +94,22 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    // Rider-specific fields
+    isOnline: {
+      type: Boolean,
+      default: false,
+    },
+    location: {
+      type: {
+        type: String,
+        enum: ['Point'],
+        default: 'Point',
+      },
+      coordinates: {
+        type: [Number], // [longitude, latitude]
+        default: [0, 0],
+      },
+    },
     lastLogin: Date,
   },
 

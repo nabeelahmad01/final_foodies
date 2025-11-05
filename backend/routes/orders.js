@@ -33,6 +33,26 @@ router.put(
   orderController.updateOrderStatus,
 );
 
+// Rider assignment routes
+router.post(
+  '/:id/find-riders',
+  protect,
+  authorize('restaurant'),
+  orderController.findNearbyRiders,
+);
+router.post(
+  '/:id/assign-rider',
+  protect,
+  authorize('rider'),
+  orderController.assignRider,
+);
+router.put(
+  '/:id/rider-location',
+  protect,
+  authorize('rider'),
+  orderController.updateRiderLocation,
+);
+
 // Rider routes
 router.get(
   '/rider/available',

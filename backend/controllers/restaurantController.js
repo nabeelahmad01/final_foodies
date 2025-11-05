@@ -9,7 +9,7 @@ import User from '../models/User.js';
 // @access  Public
 export const getRestaurants = async (req, res) => {
   try {
-    const { cuisineType, minRating, lat, lng, maxDistance } = req.query;
+    const { cuisineType, minRating, lat, lng, maxDistance, ownerId } = req.query;
     
     let query = { isActive: true };
 
@@ -19,6 +19,10 @@ export const getRestaurants = async (req, res) => {
 
     if (minRating) {
       query.rating = { $gte: parseFloat(minRating) };
+    }
+
+    if (ownerId) {
+      query.ownerId = ownerId;
     }
 
     let restaurants;

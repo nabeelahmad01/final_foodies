@@ -12,15 +12,8 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 
-// Conditional imports for react-native-maps
-let MapView, Marker, Polyline, PROVIDER_GOOGLE;
-if (Platform.OS !== 'web') {
-  const maps = require('react-native-maps');
-  MapView = maps.default;
-  Marker = maps.Marker;
-  Polyline = maps.Polyline;
-  PROVIDER_GOOGLE = maps.PROVIDER_GOOGLE;
-}
+// Use platform-specific MapComponent
+import MapComponent, { Marker, Polyline } from '../../components/MapComponent';
 import api from '../../services/api';
 import colors from '../../styles/colors';
 import { ORDER_STATUS } from '../../utils/constants';
@@ -191,43 +184,48 @@ const DeliveryScreen = ({ route, navigation }) => {
       >
         {/* Map */}
         <View style={styles.mapContainer}>
-          {MapView ? (
-            <MapView
-              provider={PROVIDER_GOOGLE}
-              style={styles.map}
-              initialRegion={{
-                latitude: 31.4952,
-                longitude: 74.3157,
-                latitudeDelta: 0.1,
-                longitudeDelta: 0.1,
+          <MapComponent
+            style={styles.map}
+            initialRegion={{
+              latitude: order.restaurantId.location?.coordinates?.[1] || 31.5204,
+              longitude: order.restaurantId.location?.coordinates?.[0] || 74.3587,
+              latitudeDelta: 0.02,
+              longitudeDelta: 0.02,
+            }}
+            showsUserLocation={true}
+            showsMyLocationButton={true}
+          >
+            <Marker
+              coordinate={{
+                latitude: order.restaurantId.location?.coordinates?.[1] || 31.5204,
+                longitude: order.restaurantId.location?.coordinates?.[0] || 74.3587,
               }}
-            >
-              <Marker
-                coordinate={restaurantLocation}
-                title="Restaurant"
-                pinColor={colors.primary}
-              >
-                <Icon name="restaurant" size={30} color={colors.primary} />
-              </Marker>
-              <Marker
-                coordinate={deliveryLocation}
-                title="Customer Location"
-                pinColor={colors.success}
-              >
-                <Icon name="location" size={30} color={colors.success} />
-              </Marker>
-              <Polyline
-                coordinates={[restaurantLocation, deliveryLocation]}
-                strokeColor={colors.primary}
-                strokeWidth={3}
-              />
-            </MapView>
-          ) : (
-            <View style={styles.mapPlaceholder}>
-              <Icon name="map-outline" size={48} color={colors.text.secondary} />
-              <Text style={styles.placeholderText}>Map view is not available on web</Text>
-            </View>
-          )}
+              title="Restaurant"
+              description={order.restaurantId.name}
+            />
+            <Marker
+              coordinate={{
+                latitude: order.deliveryCoordinates?.latitude || 31.5204,
+                longitude: order.deliveryCoordinates?.longitude || 74.3587,
+              }}
+              title="Delivery Location"
+              description={order.deliveryAddress}
+            />
+            <Polyline
+              coordinates={[
+                {
+                  latitude: order.restaurantId.location?.coordinates?.[1] || 31.5204,
+                  longitude: order.restaurantId.location?.coordinates?.[0] || 74.3587,
+                },
+                {
+                  latitude: order.deliveryCoordinates?.latitude || 31.5204,
+                  longitude: order.deliveryCoordinates?.longitude || 74.3587,
+                },
+              ]}
+              strokeColor={colors.primary}
+              strokeWidth={3}
+            />
+          </MapComponent>
         </View>
 
         {/* Progress Steps */}

@@ -14,6 +14,7 @@ import RegisterScreen from '../screens/auth/RegisterScreen';
 
 // User Screens
 import AddressManagementScreen from '../screens/user/AddressManagementScreen';
+import AddressPickerScreen from '../screens/user/AddressPickerScreen';
 import CheckoutScreen from '../screens/user/CheckoutScreen';
 import OrderTrackingScreen from '../screens/user/OrderTrackingScreen';
 import ProfileScreen from '../screens/user/ProfileScreen';
@@ -28,6 +29,9 @@ import SetupRestaurantScreen from '../screens/restaurant/SetupRestaurantScreen';
 
 // Rider Screens
 import RiderDelivery from '../screens/rider/DeliveryScreen';
+
+// Testing Screens
+import WebTestingDashboard from '../screens/WebTestingDashboard';
 import RiderDashboard from '../screens/rider/RiderDashboard';
 
 // Common Screens
@@ -38,7 +42,6 @@ import NotificationsScreen from '../screens/misc/NotificationsScreen';
 import PaymentMethodsScreen from '../screens/misc/PaymentMethodsScreen';
 import TermsScreen from '../screens/misc/TermsScreen';
 import WalletScreen from '../screens/misc/WalletScreen';
-import AddressPickerScreen from '../screens/user/AddressPickerScreen';
 
 const Stack = createStackNavigator();
 
@@ -162,6 +165,11 @@ const AppNavigator = () => {
       <Stack.Screen 
         name="Terms" 
         component={TermsScreen}
+        options={{ headerShown: false,}}
+      />
+      <Stack.Screen 
+        name="WebTesting" 
+        component={WebTestingDashboard}
         options={{ headerShown: false,}}
       />
       <Stack.Screen 

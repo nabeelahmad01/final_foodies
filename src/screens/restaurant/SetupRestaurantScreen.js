@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, ActivityIndicator, Modal } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
-import MapView, { Marker } from 'react-native-maps';
+import MapComponent, { Marker } from '../../components/MapComponent';
 import * as Location from 'expo-location';
 import { useDispatch } from 'react-redux';
 import colors from '../../styles/colors';
@@ -33,23 +33,80 @@ const SetupRestaurantScreen = ({ navigation }) => {
         return;
       }
       try {
-        const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(
+        // Primary search with Pakistan country filter
+        const primaryUrl = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(
           query
-        )}.json?access_token=${MAPBOX_ACCESS_TOKEN}&autocomplete=true&limit=5&country=pk`;
+        )}.json?access_token=${MAPBOX_ACCESS_TOKEN}&autocomplete=true&limit=10&country=pk&types=address,poi,place,locality,neighborhood`;
         
         console.log('Fetching address suggestions for:', query);
-        const res = await fetch(url);
-        const data = await res.json();
+        const primaryRes = await fetch(primaryUrl);
+        const primaryData = await primaryRes.json();
         
-        // Filter to only include results from Pakistan as an extra precaution
-        const pakistanResults = (data.features || []).filter(feature => {
-          // Check if the result is in Pakistan
-          const context = feature.context || [];
-          const country = context.find(c => c.id.includes('country'));
-          return country && country.text.toLowerCase() === 'pakistan';
-        });
+        let allResults = primaryData.features || [];
         
-        console.log('Filtered Pakistan results:', pakistanResults);
+        // If we get fewer than 3 results, try a broader search
+        if (allResults.length < 3) {
+          console.log('Few results found, trying broader search...');
+          const broadUrl = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(
+            query + ' Pakistan'
+          )}.json?access_token=${MAPBOX_ACCESS_TOKEN}&autocomplete=true&limit=8&types=address,poi,place,locality,neighborhood`;
+          
+          const broadRes = await fetch(broadUrl);
+          const broadData = await broadRes.json();
+          
+          // Merge results and remove duplicates
+          const broadResults = (broadData.features || []).filter(feature => {
+            // Check if the result is in Pakistan
+            const context = feature.context || [];
+            const country = context.find(c => c.id.includes('country'));
+            const isInPakistan = country && country.text.toLowerCase() === 'pakistan';
+            
+            // Also check if result already exists
+            const isDuplicate = allResults.some(existing => existing.id === feature.id);
+            
+            return isInPakistan && !isDuplicate;
+          });
+          
+          allResults = [...allResults, ...broadResults];
+        }
+        
+        // Filter to only include results from Pakistan and sort by relevance
+        const pakistanResults = allResults
+          .filter(feature => {
+            const context = feature.context || [];
+            const country = context.find(c => c.id.includes('country'));
+            return country && country.text.toLowerCase() === 'pakistan';
+          })
+          .slice(0, 8); // Limit to 8 suggestions
+        
+        console.log('Filtered Pakistan results:', pakistanResults.length, 'suggestions');
+        
+        // If still very few results, add some common Pakistani location suggestions
+        if (pakistanResults.length < 2) {
+          const commonPakistaniPlaces = [
+            { id: 'manual-lahore', place_name: `${query}, Lahore, Punjab, Pakistan`, center: [74.3587, 31.5204] },
+            { id: 'manual-karachi', place_name: `${query}, Karachi, Sindh, Pakistan`, center: [67.0011, 24.8607] },
+            { id: 'manual-islamabad', place_name: `${query}, Islamabad, Pakistan`, center: [73.0479, 33.6844] },
+            { id: 'manual-rawalpindi', place_name: `${query}, Rawalpindi, Punjab, Pakistan`, center: [73.0479, 33.5651] },
+            { id: 'manual-faisalabad', place_name: `${query}, Faisalabad, Punjab, Pakistan`, center: [73.1344, 31.4504] },
+            { id: 'manual-multan', place_name: `${query}, Multan, Punjab, Pakistan`, center: [71.5249, 30.1575] },
+            { id: 'manual-peshawar', place_name: `${query}, Peshawar, Khyber Pakhtunkhwa, Pakistan`, center: [71.5249, 34.0151] },
+            { id: 'manual-quetta', place_name: `${query}, Quetta, Balochistan, Pakistan`, center: [66.9750, 30.1798] },
+            { id: 'manual-sialkot', place_name: `${query}, Sialkot, Punjab, Pakistan`, center: [74.5247, 32.4945] },
+            { id: 'manual-gujranwala', place_name: `${query}, Gujranwala, Punjab, Pakistan`, center: [74.1883, 32.1877] }
+          ].filter(place => {
+            const queryLower = query.toLowerCase();
+            const placeName = place.place_name.toLowerCase();
+            const cityName = place.place_name.split(',')[1].trim().toLowerCase();
+            
+            return placeName.includes(queryLower) || 
+                   queryLower.includes(cityName) ||
+                   cityName.includes(queryLower);
+          });
+          
+          pakistanResults.push(...commonPakistaniPlaces.slice(0, 3));
+        }
+        
         setSuggestions(pakistanResults);
       } catch (error) {
         console.error('Error fetching address suggestions:', error);
@@ -284,9 +341,9 @@ const SetupRestaurantScreen = ({ navigation }) => {
           />
           <View style={styles.mapContainer}>
             {region ? (
-              <MapView style={styles.map} initialRegion={region} region={region} onRegionChangeComplete={setRegion}>
+              <MapComponent style={styles.map} initialRegion={region} region={region} onRegionChangeComplete={setRegion}>
                 <Marker coordinate={{ latitude: region.latitude, longitude: region.longitude }} />
-              </MapView>
+              </MapComponent>
             ) : (
               <View style={styles.mapPlaceholder}>
                 {loading ? <ActivityIndicator /> : <Text style={styles.placeholderText}>Map</Text>}

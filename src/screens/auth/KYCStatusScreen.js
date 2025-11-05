@@ -6,6 +6,7 @@ import { useToast } from 'react-native-toast-notifications';
 import { useNavigation } from '@react-navigation/native';
 import { loadUser } from '../../redux/slices/authSlice';
 import { KYC_STATUS } from '../../utils/constants';
+import api from '../../services/api';
 
 const KYCStatusScreen = () => {
   const dispatch = useDispatch();
@@ -26,13 +27,58 @@ const KYCStatusScreen = () => {
   const getStatusDetails = () => {
     // Force approved state for development
     if (forceApproved) {
+      const handleForceApproved = async () => {
+        try {
+          // For restaurant role, check if restaurant is already set up
+          if (user?.role === 'restaurant') {
+            if (user?.restaurantId) {
+              navigation.replace('RestaurantDashboard');
+            } else {
+              navigation.replace('SetupRestaurant');
+            }
+          } else if (user?.role === 'rider') {
+            // For riders, set auto-online and go to rider dashboard
+            try {
+              await api.put('/riders/auto-online');
+              console.log('✅ Rider automatically set to online');
+            } catch (error) {
+              console.log('⚠️ Failed to set rider online automatically:', error.message);
+            }
+            navigation.replace('RiderDashboard');
+          } else {
+            // For other users, go to main app
+            navigation.replace('MainTabs');
+          }
+        } catch (error) {
+          console.error('Error in handleForceApproved:', error);
+          // Fallback navigation based on role
+          if (user?.role === 'restaurant') {
+            navigation.replace('SetupRestaurant');
+          } else if (user?.role === 'rider') {
+            navigation.replace('RiderDashboard');
+          } else {
+            navigation.replace('MainTabs');
+          }
+        }
+      };
+
+      const getForceMessage = () => {
+        if (user?.role === 'restaurant') {
+          return 'Your KYC has been approved. You can now set up your restaurant.';
+        } else if (user?.role === 'rider') {
+          return 'Your KYC has been approved. You can now start accepting delivery orders.';
+        } else {
+          return 'Your KYC has been approved. You can now access all features.';
+        }
+      };
+
       return {
         title: 'KYC Approved!',
-        message: 'Your KYC has been approved. You can now set up your restaurant.',
+        message: getForceMessage(),
         icon: <MaterialIcons name="check-circle" size={80} color="#4CAF50" />,
-        buttonText: 'Setup Restaurant',
+        buttonText: 'Get Started',
         showButton: true,
-        onPress: () => navigation.replace('SetupRestaurant')
+        onPress: handleForceApproved
       };
     }
     
@@ -65,7 +111,13 @@ const KYCStatusScreen = () => {
                 navigation.replace('SetupRestaurant');
               }
             } else if (user?.role === 'rider') {
-              // For riders, go directly to rider dashboard
+              // For riders, set auto-online and go to rider dashboard
+              try {
+                await api.put('/riders/auto-online');
+                console.log('✅ Rider automatically set to online');
+              } catch (error) {
+                console.log('⚠️ Failed to set rider online automatically:', error.message);
+              }
               navigation.replace('RiderDashboard');
             } else {
               // For other users, go to main app
@@ -83,9 +135,20 @@ const KYCStatusScreen = () => {
             }
           }
         };
+        
+        const getMessage = () => {
+          if (user?.role === 'restaurant') {
+            return 'Your KYC has been approved. You can now set up your restaurant.';
+          } else if (user?.role === 'rider') {
+            return 'Your KYC has been approved. You can now start accepting delivery orders.';
+          } else {
+            return 'Your KYC has been approved. You can now access all features.';
+          }
+        };
+        
         return {
           title: 'KYC Approved!',
-          message: 'Your KYC has been approved. You can now set up your restaurant.',
+          message: getMessage(),
           icon: <MaterialIcons name="check-circle" size={80} color="#4CAF50" />,
           buttonText: 'Get Started',
           showButton: true,

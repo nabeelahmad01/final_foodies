@@ -77,8 +77,8 @@ const orderSlice = createSlice({
       })
       .addCase(createOrder.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.currentOrder = action.payload;
-        state.orders.unshift(action.payload);
+        state.currentOrder = action.payload.order || action.payload;
+        state.orders.unshift(action.payload.order || action.payload);
       })
       .addCase(createOrder.rejected, (state, action) => {
         state.isLoading = false;
@@ -90,15 +90,23 @@ const orderSlice = createSlice({
       })
       .addCase(fetchUserOrders.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.orders = action.payload;
+        state.orders = action.payload.orders || action.payload;
       })
       .addCase(fetchUserOrders.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload;
       })
       // Track Order
+      .addCase(trackOrder.pending, state => {
+        state.isLoading = true;
+      })
       .addCase(trackOrder.fulfilled, (state, action) => {
-        state.trackingOrder = action.payload;
+        state.isLoading = false;
+        state.trackingOrder = action.payload.order || action.payload;
+      })
+      .addCase(trackOrder.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload;
       });
   },
 });
