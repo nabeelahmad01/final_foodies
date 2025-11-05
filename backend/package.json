@@ -5,7 +5,7 @@
   "type": "module",
   "main": "server.js",
   "scripts": {
-    "start": "node --experimental-modules --es-module-specifier-resolution=node server.js",
+    "start": "node server.js",
     "dev": "nodemon --experimental-modules --es-module-specifier-resolution=node server.js",
     "approve-kyc": "node --experimental-modules --es-module-specifier-resolution=node scripts/approve-kyc.js",
     "seed-restaurants": "node --experimental-modules --es-module-specifier-resolution=node scripts/seed-restaurants.js",

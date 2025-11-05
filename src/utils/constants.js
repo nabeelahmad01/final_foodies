@@ -1,11 +1,17 @@
 // src/utils/constants.js
-// Use your computer's local IP address here
-// Make sure to update this with your actual local IP address
-// For Expo Go app - use your computer's WiFi IP
-export const API_URL = 'http://192.168.0.46:5000/api'; // Expo Go (WiFi IP)
-// Alternative for different setups:
-// export const API_URL = 'http://10.0.2.2:5000/api'; // Android emulator only
-// export const API_URL = 'http://localhost:5000/api'; // iOS simulator only
+// API Configuration
+const __DEV__ = process.env.NODE_ENV === 'development';
+
+// Development API URL - use your local IP
+const DEV_API_URL = 'http://192.168.0.46:5000/api';
+
+// Production API URL - replace with your deployed backend URL
+// After Railway deployment, replace with your actual URL
+const PROD_API_URL = 'https://finalfoodies.up.railway.app/api';
+
+// Use development URL for now, change to PROD_API_URL when you deploy backend
+// After deployment, replace 'your-backend-domain.com' with your actual Railway URL
+export const API_URL = __DEV__ ? DEV_API_URL : PROD_API_URL;
 
 export const ORDER_STATUS = {
   PENDING: 'pending',
