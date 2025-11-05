@@ -11,6 +11,7 @@ export const login = createAsyncThunk(
   'auth/login',
   async ({ email, password }, { rejectWithValue }) => {
     try {
+      console.log('Making login request to:', apiClient.defaults.baseURL + '/auth/login');
       const response = (await apiClient.post('/auth/login', { email, password })).data;
       
       if (response && response.token) {
@@ -21,6 +22,13 @@ export const login = createAsyncThunk(
       }
     } catch (error) {
       console.error('Login error:', error);
+      // Provide more specific error handling
+      if (error.code === 'ECONNABORTED') {
+        return rejectWithValue('Request timed out. Please check your internet connection and try again.');
+      }
+      if (error.response?.data?.message) {
+        return rejectWithValue(error.response.data.message);
+      }
       return rejectWithValue(error.message || 'Login failed. Please try again.');
     }
   },

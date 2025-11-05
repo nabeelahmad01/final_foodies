@@ -95,16 +95,104 @@ export const createOrder = async (req, res) => {
 
     // Emit socket event to restaurant
     const io = req.app.get('io');
-    io.emit('newOrder', { restaurantId, orderId: order._id });
+    io.to(`restaurant_${restaurantId}`).emit('newOrder', { 
+      restaurantId, 
+      orderId: order._id,
+      orderDetails: {
+        totalAmount: order.totalAmount,
+        items: order.items,
+        customerName: req.user.name,
+        deliveryAddress: order.deliveryAddress
+      }
+    });
 
     // Send notification to restaurant
     const restaurant = await Restaurant.findById(restaurantId).populate('ownerId');
-    await sendPushNotification(
-      restaurant.ownerId._id,
-      'New Order! 🎉',
-      `Order #${order._id.toString().slice(-6)} received`,
-      { type: 'restaurant_order', orderId: order._id },
-    );
+    if (restaurant && restaurant.ownerId) {
+      await sendPushNotification(
+        restaurant.ownerId._id,
+        'New Order! 🎉',
+        `Order #${order._id.toString().slice(-6)} received`,
+        { type: 'restaurant_order', orderId: order._id },
+      );
+      console.log('📱 Push notification sent to restaurant:', {
+        restaurantId: restaurant._id,
+        ownerId: restaurant.ownerId._id,
+        message: `Order #${order._id.toString().slice(-6)} received`
+      });
+    } else {
+      console.warn('⚠️ Restaurant or restaurant owner not found for notification');
+    }
+
+    // AUTO-NOTIFY RIDERS: Automatically find and notify nearby riders
+    try {
+      console.log('🚴‍♂️ Auto-notifying nearby riders...');
+      
+      // Get restaurant location
+      const restaurantLocation = restaurant.location?.coordinates;
+      if (restaurantLocation) {
+        const [restaurantLng, restaurantLat] = restaurantLocation;
+
+        // Find riders within 5km radius who are online
+        const nearbyRiders = await User.find({
+          role: 'rider',
+          isActive: true,
+          kycStatus: 'approved',
+          'location.coordinates': {
+            $near: {
+              $geometry: {
+                type: 'Point',
+                coordinates: restaurantLocation
+              },
+              $maxDistance: 5000 // 5km in meters
+            }
+          }
+        }).limit(15);
+
+        console.log(`🔍 Found ${nearbyRiders.length} nearby riders for order ${order._id}`);
+
+        // Send notifications to nearby riders
+        for (const rider of nearbyRiders) {
+          // Emit real-time notification
+          io.to(`rider_${rider._id}`).emit('newOrderAvailable', {
+            orderId: order._id,
+            restaurantName: restaurant.name,
+            deliveryAddress: order.deliveryAddress,
+            totalAmount: order.totalAmount,
+            distance: calculateDistance(
+              restaurantLat, restaurantLng,
+              rider.location?.coordinates?.[1] || 0,
+              rider.location?.coordinates?.[0] || 0
+            ),
+            playSound: true,
+            estimatedEarning: Math.round(order.totalAmount * 0.15), // 15% commission
+          });
+
+          // Send push notification
+          await sendPushNotification(
+            rider._id,
+            'New Delivery Available! 🚴‍♂️',
+            `${restaurant.name} - Rs.${order.totalAmount}`,
+            { 
+              type: 'rider_order_available', 
+              orderId: order._id,
+              sound: 'notification_sound.mp3'
+            },
+          );
+        }
+
+        // Update order status to looking for rider
+        order.status = 'looking_for_rider';
+        await order.save();
+
+        console.log(`✅ Notified ${nearbyRiders.length} nearby riders automatically`);
+      } else {
+        console.warn('⚠️ Restaurant location not found, cannot notify riders');
+      }
+    } catch (riderNotificationError) {
+      console.error('❌ Failed to auto-notify riders:', riderNotificationError);
+      // Don't fail the order creation if rider notification fails
+    }
 
     console.log('✅ Order created successfully:', {
       orderId: order._id,
@@ -112,12 +200,6 @@ export const createOrder = async (req, res) => {
       restaurantId: order.restaurantId,
       totalAmount: order.totalAmount,
       itemsCount: order.items.length
-    });
-
-    console.log('📱 Push notification sent to restaurant:', {
-      restaurantId: restaurant._id,
-      ownerId: restaurant.ownerId._id,
-      message: `Order #${order._id.toString().slice(-6)} received`
     });
 
     console.log('🔔 Socket event emitted:', {

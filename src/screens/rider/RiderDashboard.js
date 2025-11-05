@@ -10,13 +10,19 @@ import {
   Switch,
 } from 'react-native';
 
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { loadUser } from '../../redux/slices/authSlice';
+import { useFocusEffect } from '@react-navigation/native';
+import io from 'socket.io-client';
+import { API_URL } from '../../utils/constants';
 import Icon from 'react-native-vector-icons/Ionicons';
 import api from '../../services/api';
 import colors from '../../styles/colors';
 import ConfirmModal from '../../components/ConfirmModal';
 
 const RiderDashboard = ({ navigation }) => {
+  const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
   const [isOnline, setIsOnline] = useState(false);
   const [stats, setStats] = useState({
@@ -29,9 +35,16 @@ const RiderDashboard = ({ navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [confirmKyc, setConfirmKyc] = useState(false);
   const [confirmAccept, setConfirmAccept] = useState({ visible: false, orderId: null });
+  const [socket, setSocket] = useState(null);
+  const [newOrderAlert, setNewOrderAlert] = useState(null);
 
   useEffect(() => {
     fetchDashboardData();
+    loadOnlineStatus(); // Load saved online status
+    
+    // Refresh user data to ensure we have the latest KYC status
+    dispatch(loadUser());
+    
     if (isOnline) {
       const interval = setInterval(() => {
         fetchAvailableOrders();
@@ -39,6 +52,122 @@ const RiderDashboard = ({ navigation }) => {
       return () => clearInterval(interval);
     }
   }, [isOnline]);
+
+  // Refresh user data when component mounts
+  useEffect(() => {
+    console.log('🔄 RiderDashboard mounted, refreshing user data...');
+    dispatch(loadUser());
+  }, []);
+
+  // Debug user state changes
+  useEffect(() => {
+    console.log('👤 User state updated:', {
+      kycStatus: user?.kycStatus,
+      role: user?.role,
+      currentRole: user?.currentRole,
+      userId: user?._id,
+      name: user?.name
+    });
+  }, [user]);
+
+  // Refresh user data when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('📱 RiderDashboard focused, refreshing user data...');
+      dispatch(loadUser());
+    }, [dispatch])
+  );
+
+  // Socket connection for real-time notifications
+  useEffect(() => {
+    if (user?._id && isOnline) {
+      console.log('🔌 Connecting to socket for rider notifications...');
+      
+      // Create socket connection
+      const socketUrl = API_URL.replace('/api', '');
+      const newSocket = io(socketUrl, {
+        transports: ['websocket'],
+        timeout: 20000,
+      });
+
+      newSocket.on('connect', () => {
+        console.log('✅ Socket connected for rider:', user._id);
+        // Join rider-specific room
+        newSocket.emit('join', `rider_${user._id}`);
+      });
+
+      newSocket.on('disconnect', () => {
+        console.log('❌ Socket disconnected');
+      });
+
+      // Listen for new order notifications
+      newSocket.on('newOrderAvailable', (orderData) => {
+        console.log('🔔 New order notification received:', orderData);
+        
+        // Show order alert
+        setNewOrderAlert(orderData);
+        
+        // Play notification sound (you can add sound here)
+        // Also refresh available orders
+        fetchAvailableOrders();
+      });
+
+      // Listen for order cancellations
+      newSocket.on('orderTaken', (data) => {
+        console.log('📦 Order taken by another rider:', data);
+        // Remove from available orders
+        setAvailableOrders(prev => prev.filter(order => order._id !== data.orderId));
+        // Hide alert if it's for this order
+        if (newOrderAlert?.orderId === data.orderId) {
+          setNewOrderAlert(null);
+        }
+      });
+
+      setSocket(newSocket);
+
+      // Cleanup on unmount
+      return () => {
+        console.log('🔌 Disconnecting socket...');
+        newSocket.disconnect();
+      };
+    }
+  }, [user?._id, isOnline]);
+
+  // Cleanup socket when going offline
+  useEffect(() => {
+    if (!isOnline && socket) {
+      console.log('📴 Going offline, disconnecting socket...');
+      socket.disconnect();
+      setSocket(null);
+      setNewOrderAlert(null);
+    }
+  }, [isOnline, socket]);
+
+  // Load saved online status when component mounts
+  const loadOnlineStatus = async () => {
+    try {
+      // Only restore online status if KYC is approved
+      if (user?.kycStatus === 'approved') {
+        const savedStatus = await AsyncStorage.getItem(`rider_online_${user._id}`);
+        if (savedStatus === 'true') {
+          setIsOnline(true);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load online status:', error);
+    }
+  };
+
+  // Save online status whenever it changes
+  const saveOnlineStatus = async (status) => {
+    try {
+      if (user?._id) {
+        await AsyncStorage.setItem(`rider_online_${user._id}`, status.toString());
+      }
+    } catch (error) {
+      console.error('Failed to save online status:', error);
+    }
+  };
 
   const fetchDashboardData = async () => {
     try {
@@ -61,6 +190,11 @@ const RiderDashboard = ({ navigation }) => {
 
   const onRefresh = async () => {
     setRefreshing(true);
+    console.log('🔄 Refreshing dashboard data and user info...');
+    
+    // Refresh user data first to get latest KYC status
+    await dispatch(loadUser());
+    
     await fetchDashboardData();
     if (isOnline) {
       await fetchAvailableOrders();
@@ -69,13 +203,36 @@ const RiderDashboard = ({ navigation }) => {
   };
 
   const toggleOnlineStatus = () => {
-    if (!isOnline) {
-      if (user.kycStatus !== 'approved') {
-        setConfirmKyc(true);
-        return;
-      }
+    // Debug user KYC status
+    console.log('🔍 Checking KYC status:', {
+      userKycStatus: user?.kycStatus,
+      isOnline,
+      userId: user?._id,
+      userRole: user?.role || user?.currentRole,
+      fullUser: user
+    });
+    
+    // TEMPORARY: Force allow toggle for testing (remove this later)
+    if (__DEV__) {
+      console.log('🔧 DEV MODE: Bypassing KYC check for testing');
+      const newStatus = !isOnline;
+      setIsOnline(newStatus);
+      saveOnlineStatus(newStatus);
+      return;
     }
-    setIsOnline(!isOnline);
+    
+    // Only check KYC status when trying to go online AND KYC is not approved
+    if (!isOnline && user?.kycStatus !== 'approved') {
+      console.log('❌ KYC not approved, showing KYC modal');
+      setConfirmKyc(true);
+      return;
+    }
+    
+    console.log('✅ KYC approved or going offline, allowing toggle');
+    // If KYC is approved or going offline, allow the toggle
+    const newStatus = !isOnline;
+    setIsOnline(newStatus);
+    saveOnlineStatus(newStatus); // Save the new status
   };
 
   const handleAcceptOrder = (orderId) => {
@@ -90,9 +247,17 @@ const RiderDashboard = ({ navigation }) => {
           <Text style={styles.headerTitle}>Rider Dashboard</Text>
           <Text style={styles.headerSubtitle}>Welcome, {user?.name}!</Text>
         </View>
-        <TouchableOpacity onPress={() => navigation.navigate('Profile')}>
-          <Icon name="person-circle-outline" size={32} color={colors.white} />
-        </TouchableOpacity>
+        <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}>
+          <TouchableOpacity onPress={async () => {
+            console.log('🔄 Manual refresh user data...');
+            await dispatch(loadUser());
+          }}>
+            <Icon name="refresh" size={28} color={colors.white} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.navigate('Profile')}>
+            <Icon name="person-circle-outline" size={32} color={colors.white} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView
@@ -112,6 +277,16 @@ const RiderDashboard = ({ navigation }) => {
               <Text style={[styles.statusText, { color: isOnline ? colors.success : colors.gray }]}>
                 {isOnline ? 'Online - Ready for Orders' : 'Offline'}
               </Text>
+              {/* Debug KYC Status */}
+              <Text style={{fontSize: 10, color: 'red'}}>
+                Debug: KYC={user?.kycStatus || 'undefined'}, Role={user?.role || user?.currentRole || 'undefined'}
+              </Text>
+              {user?.kycStatus === 'approved' && (
+                <View style={styles.kycBadge}>
+                  <Icon name="checkmark-circle" size={14} color={colors.success} />
+                  <Text style={styles.kycText}>KYC Verified</Text>
+                </View>
+              )}
             </View>
           </View>
           <Switch
@@ -251,33 +426,49 @@ const RiderDashboard = ({ navigation }) => {
         </View>
       </ScrollView>
 
+      {/* New Order Alert Modal */}
+      {newOrderAlert && (
+        <ConfirmModal
+          visible={true}
+          title="🔔 New Order Available!"
+          message={`Restaurant: ${newOrderAlert.restaurantName}\nAmount: Rs.${newOrderAlert.totalAmount}\nDistance: ${newOrderAlert.distance?.toFixed(1)}km\nEarning: Rs.${newOrderAlert.estimatedEarning}`}
+          confirmText="Accept Order"
+          cancelText="Decline"
+          onConfirm={() => {
+            handleAcceptOrder(newOrderAlert.orderId);
+            setNewOrderAlert(null);
+          }}
+          onCancel={() => setNewOrderAlert(null)}
+        />
+      )}
+
       {/* Confirm KYC Modal */}
       <ConfirmModal
         visible={confirmKyc}
         title="KYC Required"
-        message="Please complete KYC verification to go online"
+        message="You need to complete KYC verification before going online. Would you like to complete it now?"
         confirmText="Complete KYC"
-        cancelText="Cancel"
-        onCancel={() => setConfirmKyc(false)}
+        cancelText="Later"
         onConfirm={() => {
           setConfirmKyc(false);
           navigation.navigate('KYCUpload');
         }}
+        onCancel={() => setConfirmKyc(false)}
       />
 
       {/* Accept Delivery Modal */}
       <ConfirmModal
         visible={confirmAccept.visible}
         title="Accept Delivery"
-        message="Do you want to accept this delivery?"
+        message="Do you want to accept this delivery order?"
         confirmText="Accept"
         cancelText="Cancel"
-        onCancel={() => setConfirmAccept({ visible: false, orderId: null })}
         onConfirm={() => {
           const id = confirmAccept.orderId;
           setConfirmAccept({ visible: false, orderId: null });
           navigation.navigate('RiderDelivery', { orderId: id });
         }}
+        onCancel={() => setConfirmAccept({ visible: false, orderId: null })}
       />
     </View>
   );
@@ -341,6 +532,22 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  kycBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    backgroundColor: colors.success + '20',
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+  },
+  kycText: {
+    fontSize: 10,
+    color: colors.success,
+    fontWeight: '600',
+    marginLeft: 4,
   },
   statsGrid: {
     flexDirection: 'row',

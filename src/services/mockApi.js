@@ -91,6 +91,15 @@ const mockApi = {
     // Remove password before returning
     const { password: _, ...userData } = user;
     
+    // Store current user in AsyncStorage for mock API
+    try {
+      const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+      await AsyncStorage.setItem('currentUser', JSON.stringify(userData));
+      console.log('Mock API - Stored current user:', userData.email);
+    } catch (error) {
+      console.log('Mock API - Could not store current user:', error.message);
+    }
+    
     // Generate a more realistic JWT token
     const token = `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxMjM0NTY3ODkwIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c`;
     
@@ -112,31 +121,64 @@ const mockApi = {
     // Reload users to ensure we have latest data
     await loadUsers();
     
-    // Try to find the admin user first
-    let user = users.find(u => u.email === 'admin786@gmail.com');
+    // Get the currently logged in user from AsyncStorage or session
+    let currentUser = null;
     
-    // If no admin user exists, create one
-    if (!user) {
-      user = {
-        _id: '1',
-        id: '1',
-        name: 'Rizwan',
-        email: 'admin786@gmail.com',
-        phone: '031807371071',
-        role: 'restaurant',
-        kycStatus: 'approved',
-        restaurantName: 'My Restaurant',
-        address: '123 Main Street, City',
-        city: 'Lahore',
-        country: 'Pakistan',
-        isEmailVerified: true,
-        isPhoneVerified: true,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-      users.push(user);
-      await saveUsers();
+    try {
+      // Try to get the current user from AsyncStorage
+      const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+      const userToken = await AsyncStorage.getItem('userToken');
+      const storedUser = await AsyncStorage.getItem('currentUser');
+      
+      if (storedUser) {
+        currentUser = JSON.parse(storedUser);
+        console.log('Mock API - Found stored user:', currentUser.email);
+      }
+    } catch (error) {
+      console.log('Mock API - Could not get stored user:', error.message);
     }
+    
+    // Find the user in our users array
+    let user = null;
+    if (currentUser) {
+      user = users.find(u => u.email === currentUser.email || u._id === currentUser._id);
+    }
+    
+    // Fallback to admin user if no current user found
+    if (!user) {
+      console.log('Mock API - No current user found, falling back to admin');
+      user = users.find(u => u.email === 'admin786@gmail.com');
+      
+      // If no admin user exists, create one
+      if (!user) {
+        user = {
+          _id: '1',
+          id: '1',
+          name: 'Rizwan',
+          email: 'admin786@gmail.com',
+          phone: '031807371071',
+          role: 'restaurant',
+          kycStatus: 'approved',
+          restaurantName: 'My Restaurant',
+          address: '123 Main Street, City',
+          city: 'Lahore',
+          country: 'Pakistan',
+          isEmailVerified: true,
+          isPhoneVerified: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        users.push(user);
+        await saveUsers();
+      }
+    }
+    
+    console.log('Mock API - Returning user:', {
+      email: user.email,
+      role: user.role,
+      kycStatus: user.kycStatus,
+      name: user.name
+    });
     
     // Remove sensitive data and ensure consistent structure
     const { password, confirmPassword, ...userData } = user;
@@ -145,8 +187,8 @@ const mockApi = {
     return {
       ...userData,
       _id: userData._id || userData.id,
-      role: userData.role || 'restaurant',
-      kycStatus: userData.kycStatus || 'approved',
+      role: userData.role || 'customer',
+      kycStatus: userData.kycStatus || 'pending',
       isEmailVerified: userData.isEmailVerified || true,
       isPhoneVerified: userData.isPhoneVerified || true
     };
@@ -341,8 +383,8 @@ const mockApi = {
           if (requestData.drivingLicense) kycData.drivingLicense = 'uploaded_driving.jpg';
           kycData.updatedAt = new Date().toISOString();
           
-          // Update user's KYC status and documents
-          user.kycStatus = 'pending';
+          // For development, auto-approve KYC
+          user.kycStatus = 'approved';
           user.kycDocuments = kycData;
           user.updatedAt = new Date().toISOString();
           
@@ -356,14 +398,13 @@ const mockApi = {
           return { 
             data: { 
               success: true, 
-              message: 'KYC documents submitted for verification',
+              message: 'KYC documents approved automatically (Development Mode)',
               user: {
                 ...user,
                 kycStatus: 'approved',
                 kycDocuments: user.kycDocuments || {}
               },
-              kycStatus: 'approved',
-              message: 'KYC documents uploaded successfully. Your documents are under review.'
+              kycStatus: 'approved'
             } 
           };
         } catch (error) {

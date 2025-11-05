@@ -16,7 +16,7 @@ import {
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useDispatch, useSelector } from 'react-redux';
 import { useToast } from '../../context.js/ToastContext';
-import { updateUser } from '../../redux/slices/authSlice';
+import { updateUser, loadUser } from '../../redux/slices/authSlice';
 import api from '../../services/api';
 import colors from '../../styles/colors';
 import { API_URL, KYC_STATUS, USER_ROLES } from '../../utils/constants';
@@ -393,12 +393,40 @@ const KYCUploadScreen = ({ navigation, route }) => {
         
         console.log('All uploads successful!');
         
-        // Update KYC status
-        dispatch(updateUser({ kycStatus: 'pending' }));
+        // For development/mock API, automatically approve KYC
+        // In production, this would be 'pending' and approved by admin
+        const kycStatus = __DEV__ ? 'approved' : 'pending';
         
-        // Show success message and navigate to KYC status screen
+        // Update KYC status and refresh user data
+        dispatch(updateUser({ kycStatus }));
+        
+        // Also refresh user data from server to ensure consistency
+        try {
+          await dispatch(loadUser());
+        } catch (error) {
+          console.warn('Failed to refresh user data:', error);
+        }
+        
+        // Show success message and navigate appropriately
         showSuccess(toast, `${uploadCount} document(s) uploaded successfully`);
-        navigation.replace('KYCStatus'); // Use replace to prevent going back to upload
+        
+        if (__DEV__) {
+          // In development, KYC is auto-approved, navigate to appropriate dashboard
+          if (user.role === USER_ROLES.RESTAURANT) {
+            if (user.restaurantId) {
+              navigation.replace('RestaurantDashboard');
+            } else {
+              navigation.replace('SetupRestaurant');
+            }
+          } else if (user.role === USER_ROLES.RIDER) {
+            navigation.replace('RiderDashboard');
+          } else {
+            navigation.replace('MainTabs');
+          }
+        } else {
+          // In production, navigate to KYC status screen
+          navigation.replace('KYCStatus');
+        }
         
       } catch (error) {
         console.error('❌ Upload failed:', error);

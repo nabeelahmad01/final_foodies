@@ -1,8 +1,8 @@
 // src/navigation/AppNavigator.js
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createStackNavigator } from '@react-navigation/stack';
 import React, { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { loadUser } from '../redux/slices/authSlice';
 
 // Auth Screens
@@ -78,19 +78,15 @@ const AppNavigator = () => {
     
     // For restaurant role users
     if (user?.role === 'restaurant') {
-      // If KYC is approved and restaurant is set up, go to dashboard
       if (user?.kycStatus === 'approved' && user?.restaurantId) {
         return 'RestaurantDashboard';
       }
-      // If KYC is approved but no restaurant setup, go to setup
       if (user?.kycStatus === 'approved' && !user?.restaurantId) {
         return 'SetupRestaurant';
       }
-      // If KYC is not approved, show KYC status (but don't keep asking if already approved once)
       if (user?.kycStatus !== 'approved') {
         return 'KYCStatus';
       }
-      // Fallback to restaurant dashboard
       return 'RestaurantDashboard';
     }
     

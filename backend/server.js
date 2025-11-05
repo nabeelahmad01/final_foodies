@@ -73,6 +73,31 @@ const io = new Server(server, {
   },
 });
 
+// Make io instance available to routes
+app.set('io', io);
+
+// Socket.IO connection handling
+io.on('connection', (socket) => {
+  console.log('🔌 User connected:', socket.id);
+
+  // Handle user joining specific rooms
+  socket.on('join', (room) => {
+    socket.join(room);
+    console.log(`👤 User ${socket.id} joined room: ${room}`);
+  });
+
+  // Handle user leaving rooms
+  socket.on('leave', (room) => {
+    socket.leave(room);
+    console.log(`👤 User ${socket.id} left room: ${room}`);
+  });
+
+  // Handle disconnection
+  socket.on('disconnect', () => {
+    console.log('❌ User disconnected:', socket.id);
+  });
+});
+
 // Middleware
 app.use(helmet());
 app.use(cors(corsOptions));

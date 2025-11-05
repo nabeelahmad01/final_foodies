@@ -10,7 +10,7 @@ const isDevelopment = process.env.NODE_ENV === 'development';
 
 const api = axios.create({
   baseURL: API_URL,
-  timeout: 10000,
+  timeout: 30000, // Increased timeout to 30 seconds
   headers: {
     'Content-Type': 'application/json',
   },
@@ -63,6 +63,11 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   response => response,
   async error => {
+    // Handle timeout errors with better messaging
+    if (error.code === 'ECONNABORTED') {
+      console.warn('Request timeout occurred');
+    }
+    
     if (error.response?.status === 401) {
       try {
         await AsyncStorage.removeItem('userToken');

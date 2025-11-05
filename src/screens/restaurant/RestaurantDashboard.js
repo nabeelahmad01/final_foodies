@@ -16,6 +16,8 @@ import colors from '../../styles/colors';
 import ConfirmModal from '../../components/ConfirmModal';
 import { t, useLanguageRerender } from '../../utils/i18n';
 import { logout } from '../../redux/slices/authSlice';
+import io from 'socket.io-client';
+import { API_URL } from '../../utils/constants';
 
 const RestaurantDashboard = ({ navigation }) => {
   useLanguageRerender();
@@ -26,10 +28,54 @@ const RestaurantDashboard = ({ navigation }) => {
   const [isOpen, setIsOpen] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showKycPrompt, setShowKycPrompt] = useState(false);
+  const [socket, setSocket] = useState(null);
+  const [newOrderAlert, setNewOrderAlert] = useState(null);
 
   useEffect(() => {
     fetchDashboardData();
   }, []);
+
+  // Socket connection for real-time order notifications
+  useEffect(() => {
+    if (restaurant?._id) {
+      console.log('🔌 Connecting to socket for restaurant notifications...');
+      
+      const socketUrl = API_URL.replace('/api', '');
+      const newSocket = io(socketUrl, {
+        transports: ['websocket'],
+        timeout: 20000,
+      });
+
+      newSocket.on('connect', () => {
+        console.log('✅ Socket connected for restaurant:', restaurant._id);
+        // Join restaurant-specific room
+        newSocket.emit('join', `restaurant_${restaurant._id}`);
+      });
+
+      newSocket.on('disconnect', () => {
+        console.log('❌ Socket disconnected');
+      });
+
+      // Listen for new order notifications
+      newSocket.on('newOrder', (orderData) => {
+        console.log('🔔 New order notification received:', orderData);
+        
+        // Show order alert
+        setNewOrderAlert(orderData);
+        
+        // Refresh dashboard data to show new order
+        fetchDashboardData();
+      });
+
+      setSocket(newSocket);
+
+      // Cleanup on unmount
+      return () => {
+        console.log('🔌 Disconnecting restaurant socket...');
+        newSocket.disconnect();
+      };
+    }
+  }, [restaurant?._id]);
 
   const fetchDashboardData = async () => {
     try {

@@ -29,6 +29,17 @@ export const isEmpty = (val) => {
 // Extract a human-readable API error message
 export const extractApiErrorMessage = (error, defaultMsg = 'Something went wrong') => {
   if (!error) return defaultMsg;
+  
+  // Handle specific timeout errors
+  if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+    return 'Request timed out. Please check your internet connection and try again.';
+  }
+  
+  // Handle network errors
+  if (error.code === 'NETWORK_ERROR' || error.message?.includes('Network Error')) {
+    return 'Network error. Please check your internet connection.';
+  }
+  
   const msg =
     safeGet(error, 'response.data.message') ||
     safeGet(error, 'response.data.error') ||
