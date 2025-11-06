@@ -73,6 +73,14 @@ router.put(
   orderController.completeDelivery,
 );
 
+// Update rider location during delivery
+router.put(
+  '/:id/rider-location',
+  protect,
+  authorize('rider'),
+  orderController.updateRiderLocation,
+);
+
 // Get rider's orders/deliveries
 router.get(
   '/rider/:riderId',

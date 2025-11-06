@@ -197,6 +197,8 @@ const MapComponent = ({
       pitchEnabled={pitchEnabled}
       // Prevent opening external maps
       onPress={() => {}} // Override default press behavior
+      onMarkerPress={() => {}} // Prevent marker press from opening external maps
+      onCalloutPress={() => {}} // Prevent callout press from opening external maps
       {...props}
     >
       {children}

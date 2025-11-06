@@ -186,7 +186,17 @@ const OrderTrackingScreen = ({ route, navigation }) => {
     {
       featureType: 'all',
       elementType: 'geometry.fill',
-      stylers: [{ color: '#f5f5f5' }]
+      stylers: [{ color: '#f8f9fa' }]
+    },
+    {
+      featureType: 'all',
+      elementType: 'labels.text.fill',
+      stylers: [{ color: colors.text }]
+    },
+    {
+      featureType: 'all',
+      elementType: 'labels.text.stroke',
+      stylers: [{ color: '#ffffff' }, { weight: 2 }]
     },
     {
       featureType: 'road',
@@ -196,12 +206,42 @@ const OrderTrackingScreen = ({ route, navigation }) => {
     {
       featureType: 'road',
       elementType: 'geometry.stroke',
-      stylers: [{ color: colors.border }]
+      stylers: [{ color: colors.border }, { weight: 1 }]
+    },
+    {
+      featureType: 'road.highway',
+      elementType: 'geometry',
+      stylers: [{ color: colors.primary + '20' }]
+    },
+    {
+      featureType: 'road.highway',
+      elementType: 'geometry.stroke',
+      stylers: [{ color: colors.primary }, { weight: 2 }]
     },
     {
       featureType: 'water',
       elementType: 'geometry',
       stylers: [{ color: colors.primary + '30' }]
+    },
+    {
+      featureType: 'landscape',
+      elementType: 'geometry',
+      stylers: [{ color: '#f0f2f5' }]
+    },
+    {
+      featureType: 'poi',
+      elementType: 'geometry',
+      stylers: [{ color: colors.secondary + '20' }]
+    },
+    {
+      featureType: 'poi.park',
+      elementType: 'geometry',
+      stylers: [{ color: colors.success + '30' }]
+    },
+    {
+      featureType: 'transit',
+      elementType: 'geometry',
+      stylers: [{ color: colors.warning + '20' }]
     }
   ];
 
@@ -216,8 +256,13 @@ const OrderTrackingScreen = ({ route, navigation }) => {
           <View style={{ width: 24 }} />
         </View>
         <View style={styles.loadingContainer}>
-          <Animated.View style={[styles.loadingDot, { transform: [{ scale: pulseAnim }] }]} />
-          <Text style={styles.loadingText}>Loading order details...</Text>
+          <View style={styles.loadingAnimation}>
+            <Animated.View style={[styles.loadingDot, { transform: [{ scale: pulseAnim }] }]} />
+            <Animated.View style={[styles.loadingDot, styles.loadingDot2, { transform: [{ scale: pulseAnim }] }]} />
+            <Animated.View style={[styles.loadingDot, styles.loadingDot3, { transform: [{ scale: pulseAnim }] }]} />
+          </View>
+          <Text style={styles.loadingText}>🔍 Calculating delivery details...</Text>
+          <Text style={styles.loadingSubtext}>Finding the best route for you</Text>
         </View>
       </View>
     );
@@ -283,9 +328,10 @@ const OrderTrackingScreen = ({ route, navigation }) => {
           <Text style={styles.headerTitle}>Track Order</Text>
           <Text style={styles.headerSubtitle}>
             {orderStatus === 'pending' && 'Waiting for restaurant confirmation'}
-            {orderStatus === 'accepted' && 'Restaurant is preparing your order'}
-            {orderStatus === 'preparing' && 'Your order is being prepared'}
-            {orderStatus === 'out_for_delivery' && 'Rider is on the way'}
+            {orderStatus === 'accepted' && '✅ Order Accepted! Restaurant is preparing'}
+            {orderStatus === 'preparing' && '👨‍🍳 Your order is being prepared'}
+            {orderStatus === 'looking_for_rider' && '🔍 Finding nearby rider for delivery'}
+            {orderStatus === 'out_for_delivery' && '🚴‍♂️ Rider is on the way to you'}
             {orderStatus === 'delivered' && 'Order delivered successfully!'}
           </Text>
         </View>
@@ -553,13 +599,25 @@ const OrderTrackingScreen = ({ route, navigation }) => {
             
             {/* Live Tracking Status */}
             <View style={styles.trackingStatus}>
-              <View style={styles.trackingDot} />
+              <Animated.View 
+                style={[
+                  styles.trackingDot, 
+                  { 
+                    transform: [{ scale: pulseAnim }],
+                    backgroundColor: orderStatus === 'out_for_delivery' ? colors.success : colors.warning
+                  }
+                ]} 
+              />
               <Text style={styles.trackingText}>
                 {orderStatus === 'out_for_delivery' 
-                  ? 'Live tracking active • Rider is moving' 
+                  ? '🔴 Live tracking active • Rider is moving' 
                   : orderStatus === 'preparing'
-                  ? 'Rider will be assigned soon'
-                  : 'Waiting for rider assignment'
+                  ? '🟡 Rider will be assigned soon'
+                  : orderStatus === 'accepted'
+                  ? '🟢 Order confirmed • Preparing your food'
+                  : orderStatus === 'looking_for_rider'
+                  ? '🔍 Finding the best rider for you'
+                  : '⏳ Waiting for restaurant confirmation'
                 }
               </Text>
             </View>
@@ -649,17 +707,39 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  loadingAnimation: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
   },
   loadingDot: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
     backgroundColor: colors.primary,
-    marginBottom: 16,
+    marginHorizontal: 4,
+  },
+  loadingDot2: {
+    backgroundColor: colors.secondary,
+    animationDelay: '0.2s',
+  },
+  loadingDot3: {
+    backgroundColor: colors.warning,
+    animationDelay: '0.4s',
   },
   loadingText: {
-    fontSize: 16,
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.text.primary,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  loadingSubtext: {
+    fontSize: 14,
     color: colors.text.secondary,
+    textAlign: 'center',
   },
   mapContainer: {
     height: 300,
