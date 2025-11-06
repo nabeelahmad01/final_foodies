@@ -14,6 +14,7 @@ import {
 import { useDispatch, useSelector } from 'react-redux';
 import Icon from 'react-native-vector-icons/Ionicons';
 import MapComponent, { Marker, Polyline } from '../../components/MapComponent';
+import { RestaurantPin, RiderPin, DeliveryPin } from '../../components/CustomMapPins';
 import { trackOrder, updateOrderStatus } from '../../redux/slices/orderSlice';
 import { ORDER_STATUS } from '../../utils/constants';
 import colors from '../../styles/colors';
@@ -288,9 +289,10 @@ const OrderTrackingScreen = ({ route, navigation }) => {
               title={trackingOrder.restaurantId?.name || "Restaurant"}
               description="Your order is being prepared here"
             >
-              <View style={styles.restaurantMarker}>
-                <Icon name="restaurant" size={20} color={colors.white} />
-              </View>
+              <RestaurantPin 
+                restaurant={trackingOrder.restaurantId} 
+                isSelected={orderStatus === 'preparing' || orderStatus === 'accepted'}
+              />
             </Marker>
 
             {/* Delivery Location Marker */}
@@ -302,9 +304,7 @@ const OrderTrackingScreen = ({ route, navigation }) => {
               title="Delivery Location"
               description="Your order will be delivered here"
             >
-              <View style={styles.deliveryMarker}>
-                <Icon name="home" size={20} color={colors.white} />
-              </View>
+              <DeliveryPin address={trackingOrder.deliveryAddress} />
             </Marker>
 
             {/* Animated Rider Marker */}
@@ -316,41 +316,57 @@ const OrderTrackingScreen = ({ route, navigation }) => {
                 description="Your delivery rider"
                 anchor={{ x: 0.5, y: 0.5 }}
               >
-                <Animated.View 
-                  style={[
-                    styles.riderMarker,
-                    {
-                      transform: [
-                        { scale: pulseAnim },
-                        { rotate: `${bikeRotation._value}deg` }
-                      ]
-                    }
-                  ]}
-                >
-                  <Icon name="bicycle" size={24} color={colors.white} />
-                </Animated.View>
+                <RiderPin 
+                  rider={trackingOrder.riderId}
+                  isMoving={orderStatus === 'out_for_delivery'}
+                  rotation={bikeRotation._value}
+                />
               </Marker>
             )}
 
-            {/* Route Polyline */}
+            {/* Enhanced Route Polyline */}
             {riderLocation && (
-              <Polyline
-                coordinates={[
-                  orderStatus === 'out_for_delivery' 
-                    ? riderLocation 
-                    : {
-                        latitude: trackingOrder.restaurantId?.location?.coordinates?.[1] || restaurantLocation.latitude,
-                        longitude: trackingOrder.restaurantId?.location?.coordinates?.[0] || restaurantLocation.longitude,
-                      },
-                  {
-                    latitude: trackingOrder.deliveryCoordinates?.latitude || deliveryLocation.latitude,
-                    longitude: trackingOrder.deliveryCoordinates?.longitude || deliveryLocation.longitude,
-                  }
-                ]}
-                strokeColor={colors.primary}
-                strokeWidth={4}
-                strokePattern={[1, 1]}
-              />
+              <>
+                {/* Route Shadow */}
+                <Polyline
+                  coordinates={[
+                    orderStatus === 'out_for_delivery' 
+                      ? riderLocation 
+                      : {
+                          latitude: trackingOrder.restaurantId?.location?.coordinates?.[1] || restaurantLocation.latitude,
+                          longitude: trackingOrder.restaurantId?.location?.coordinates?.[0] || restaurantLocation.longitude,
+                        },
+                    {
+                      latitude: trackingOrder.deliveryCoordinates?.latitude || deliveryLocation.latitude,
+                      longitude: trackingOrder.deliveryCoordinates?.longitude || deliveryLocation.longitude,
+                    }
+                  ]}
+                  strokeColor="rgba(0, 0, 0, 0.2)"
+                  strokeWidth={8}
+                  lineCap="round"
+                  lineJoin="round"
+                />
+                {/* Main Route */}
+                <Polyline
+                  coordinates={[
+                    orderStatus === 'out_for_delivery' 
+                      ? riderLocation 
+                      : {
+                          latitude: trackingOrder.restaurantId?.location?.coordinates?.[1] || restaurantLocation.latitude,
+                          longitude: trackingOrder.restaurantId?.location?.coordinates?.[0] || restaurantLocation.longitude,
+                        },
+                    {
+                      latitude: trackingOrder.deliveryCoordinates?.latitude || deliveryLocation.latitude,
+                      longitude: trackingOrder.deliveryCoordinates?.longitude || deliveryLocation.longitude,
+                    }
+                  ]}
+                  strokeColor={orderStatus === 'out_for_delivery' ? colors.warning : colors.primary}
+                  strokeWidth={5}
+                  strokePattern={orderStatus === 'out_for_delivery' ? [10, 5] : undefined}
+                  lineCap="round"
+                  lineJoin="round"
+                />
+              </>
             )}
           </MapComponent>
           

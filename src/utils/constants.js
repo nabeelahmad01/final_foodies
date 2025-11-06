@@ -3,7 +3,7 @@
 const __DEV__ = process.env.NODE_ENV === 'development';
 
 // Development API URL - use your local IP
-const DEV_API_URL = 'http://192.168.0.46:5000/api';
+const DEV_API_URL = 'http://192.168.0.32:5000/api';
 
 // Production API URL - replace with your deployed backend URL
 // After Railway deployment, replace with your actual URL

@@ -13,6 +13,7 @@ import {
 import { useDispatch, useSelector } from 'react-redux';
 import Icon from 'react-native-vector-icons/Ionicons';
 import MapComponent, { Marker, Polyline } from '../../components/MapComponent';
+import { RestaurantPin, RiderPin, DeliveryPin } from '../../components/CustomMapPins';
 import colors from '../../styles/colors';
 import api from '../../services/api';
 import * as Location from 'expo-location';
@@ -246,9 +247,10 @@ const RiderDeliveryScreen = ({ route, navigation }) => {
             title={order.restaurantId?.name}
             description="Pickup location"
           >
-            <View style={styles.restaurantMarker}>
-              <Icon name="restaurant" size={20} color={colors.white} />
-            </View>
+            <RestaurantPin 
+              restaurant={order.restaurantId} 
+              isSelected={deliveryStatus === 'picked_up'}
+            />
           </Marker>
 
           {/* Delivery Marker */}
@@ -260,9 +262,7 @@ const RiderDeliveryScreen = ({ route, navigation }) => {
             title="Delivery Location"
             description={order.deliveryAddress}
           >
-            <View style={styles.deliveryMarker}>
-              <Icon name="home" size={20} color={colors.white} />
-            </View>
+            <DeliveryPin address={order.deliveryAddress} />
           </Marker>
 
           {/* Current Location Marker */}
@@ -272,28 +272,46 @@ const RiderDeliveryScreen = ({ route, navigation }) => {
               title="Your Location"
               description="Current rider position"
             >
-              <Animated.View style={[
-                styles.riderMarker,
-                { transform: [{ scale: pulseAnim }] }
-              ]}>
-                <Icon name="bicycle" size={24} color={colors.white} />
-              </Animated.View>
+              <RiderPin 
+                rider={user}
+                isMoving={deliveryStatus === 'on_the_way'}
+              />
             </Marker>
           )}
 
-          {/* Route */}
+          {/* Enhanced Route */}
           {currentLocation && (
-            <Polyline
-              coordinates={[
-                currentLocation,
-                {
-                  latitude: order.deliveryCoordinates?.latitude || 31.4697,
-                  longitude: order.deliveryCoordinates?.longitude || 74.2728,
-                }
-              ]}
-              strokeColor={colors.primary}
-              strokeWidth={4}
-            />
+            <>
+              {/* Route Shadow */}
+              <Polyline
+                coordinates={[
+                  currentLocation,
+                  {
+                    latitude: order.deliveryCoordinates?.latitude || 31.4697,
+                    longitude: order.deliveryCoordinates?.longitude || 74.2728,
+                  }
+                ]}
+                strokeColor="rgba(0, 0, 0, 0.3)"
+                strokeWidth={7}
+                lineCap="round"
+                lineJoin="round"
+              />
+              {/* Main Route */}
+              <Polyline
+                coordinates={[
+                  currentLocation,
+                  {
+                    latitude: order.deliveryCoordinates?.latitude || 31.4697,
+                    longitude: order.deliveryCoordinates?.longitude || 74.2728,
+                  }
+                ]}
+                strokeColor={deliveryStatus === 'on_the_way' ? colors.warning : colors.primary}
+                strokeWidth={4}
+                strokePattern={deliveryStatus === 'on_the_way' ? [8, 4] : undefined}
+                lineCap="round"
+                lineJoin="round"
+              />
+            </>
           )}
         </MapComponent>
       </View>

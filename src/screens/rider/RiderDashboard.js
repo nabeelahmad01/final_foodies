@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   RefreshControl,
   Switch,
+  Alert,
 } from 'react-native';
 
 import { useSelector, useDispatch } from 'react-redux';
@@ -239,6 +240,60 @@ const RiderDashboard = ({ navigation }) => {
     setConfirmAccept({ visible: true, orderId });
   };
 
+  const acceptDelivery = async (orderId) => {
+    try {
+      console.log('🚀 Accepting delivery for order:', orderId);
+      console.log('🔍 Current user data:', {
+        userId: user?._id,
+        userRole: user?.role,
+        kycStatus: user?.kycStatus,
+        name: user?.name
+      });
+      
+      // Accept the delivery through API
+      const response = await api.put(`/orders/${orderId}/accept-delivery`);
+      
+      if (response.data.status === 'success') {
+        console.log('✅ Delivery accepted successfully');
+        
+        // Remove from available orders
+        setAvailableOrders(prev => prev.filter(order => order._id !== orderId));
+        
+        // Navigate to delivery screen
+        navigation.navigate('RiderDelivery', { orderId });
+      }
+    } catch (error) {
+      console.error('❌ Error accepting delivery:', error);
+      console.error('❌ Full error details:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message
+      });
+      
+      // Show specific error message
+      let errorMessage = 'Failed to accept delivery';
+      if (error.response?.status === 401) {
+        errorMessage = 'Unauthorized: Please check your rider role and KYC status';
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      Alert.alert('Error', errorMessage, [
+        {
+          text: 'Check Profile',
+          onPress: () => navigation.navigate('Profile')
+        },
+        {
+          text: 'OK',
+          style: 'cancel'
+        }
+      ]);
+    }
+  };
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -466,7 +521,7 @@ const RiderDashboard = ({ navigation }) => {
         onConfirm={() => {
           const id = confirmAccept.orderId;
           setConfirmAccept({ visible: false, orderId: null });
-          navigation.navigate('RiderDelivery', { orderId: id });
+          acceptDelivery(id);
         }}
         onCancel={() => setConfirmAccept({ visible: false, orderId: null })}
       />

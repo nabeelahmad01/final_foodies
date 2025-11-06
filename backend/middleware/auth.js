@@ -43,11 +43,29 @@ export const protect = async (req, res, next) => {
 export const authorize = (...roles) => {
   return (req, res, next) => {
     try {
-      if (!roles.includes(req.user.role)) {
-        throw new Error(`Role '${req.user.role}' is not authorized to access this route`);
+      console.log('🔍 Authorization check:', {
+        userRole: req.user?.role,
+        requiredRoles: roles,
+        userId: req.user?._id,
+        userName: req.user?.name
+      });
+      
+      if (!req.user) {
+        throw new Error('User not found in request');
       }
+      
+      if (!req.user.role) {
+        throw new Error('User role not defined');
+      }
+      
+      if (!roles.includes(req.user.role)) {
+        throw new Error(`Role '${req.user.role}' is not authorized to access this route. Required roles: ${roles.join(', ')}`);
+      }
+      
+      console.log('✅ Authorization successful for role:', req.user.role);
       next();
     } catch (error) {
+      console.error('❌ Authorization failed:', error.message);
       next(error);
     }
   };

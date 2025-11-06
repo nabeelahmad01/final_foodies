@@ -1,23 +1,22 @@
 // src/screens/user/HomeScreen.js
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  TextInput,
-  Image,
-  FlatList,
-  RefreshControl,
   ActivityIndicator,
+  FlatList,
+  Image,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { useDispatch, useSelector } from 'react-redux';
 import Icon from 'react-native-vector-icons/Ionicons';
-import { fetchRestaurants } from '../../redux/slices/restaurantSlice';
+import { useDispatch, useSelector } from 'react-redux';
 import { logout } from '../../redux/slices/authSlice';
-import { CATEGORIES } from '../../utils/constants';
+import { fetchRestaurants } from '../../redux/slices/restaurantSlice';
 import colors from '../../styles/colors';
-import { t } from '../../utils/i18n';
+import { CATEGORIES } from '../../utils/constants';
 
 const HomeScreen = ({ navigation }) => {
   const dispatch = useDispatch();
