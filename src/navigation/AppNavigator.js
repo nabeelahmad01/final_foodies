@@ -4,6 +4,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import React, { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { loadUser } from '../redux/slices/authSlice';
+import GlobalNotification from '../components/GlobalNotification';
 
 // Auth Screens
 import KYCStatusScreen from '../screens/auth/KYCStatusScreen';
@@ -29,6 +30,10 @@ import SetupRestaurantScreen from '../screens/restaurant/SetupRestaurantScreen';
 
 // Rider Screens
 import RiderDelivery from '../screens/rider/DeliveryScreen';
+import MyDeliveriesScreen from '../screens/rider/MyDeliveriesScreen';
+import EarningsScreen from '../screens/rider/EarningsScreen';
+import RiderProfileScreen from '../screens/rider/RiderProfileScreen';
+import ConversationsScreen from '../screens/rider/ConversationsScreen';
 
 // Testing Screens
 import WebTestingDashboard from '../screens/WebTestingDashboard';
@@ -271,8 +276,56 @@ const AppNavigator = () => {
           headerShown: false,
         }}
       />
+      
+      {/* Rider Screens */}
+      <Stack.Screen 
+        name="MyDeliveries" 
+        component={MyDeliveriesScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen 
+        name="Earnings" 
+        component={EarningsScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen 
+        name="RiderProfile" 
+        component={RiderProfileScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen 
+        name="Conversations" 
+        component={ConversationsScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
+      
+      {/* Review Screen */}
+      <Stack.Screen 
+        name="ReviewScreen" 
+        component={require('../screens/user/ReviewScreen').default}
+        options={{
+          headerShown: false,
+        }}
+      />
     </Stack.Navigator>
   );
 };
 
-export default AppNavigator;
+const AppNavigatorWithNotifications = () => {
+  return (
+    <>
+      <AppNavigator />
+      <GlobalNotification />
+    </>
+  );
+};
+
+export default AppNavigatorWithNotifications;

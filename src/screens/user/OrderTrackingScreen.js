@@ -15,6 +15,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import Icon from 'react-native-vector-icons/Ionicons';
 import MapComponent, { Marker, Polyline } from '../../components/MapComponent';
 import { RestaurantPin, RiderPin, DeliveryPin } from '../../components/CustomMapPins';
+import { calculateDistance, formatDistance, calculateETA, formatETA, calculateBearing } from '../../utils/mapUtils';
 import { trackOrder, updateOrderStatus } from '../../redux/slices/orderSlice';
 import { ORDER_STATUS } from '../../utils/constants';
 import colors from '../../styles/colors';
@@ -32,6 +33,8 @@ const OrderTrackingScreen = ({ route, navigation }) => {
   const [riderLocation, setRiderLocation] = useState(null);
   const [estimatedTime, setEstimatedTime] = useState(null);
   const [orderStatus, setOrderStatus] = useState('pending');
+  const [distance, setDistance] = useState(null);
+  const [eta, setEta] = useState(null);
   const mapRef = useRef(null);
   const riderMarkerRef = useRef(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -121,6 +124,35 @@ const OrderTrackingScreen = ({ route, navigation }) => {
       riderMarkerRef.current.animateMarkerToCoordinate(newLocation, 500);
     }
   };
+
+  // Calculate distance and ETA
+  const updateDistanceAndETA = () => {
+    if (!trackingOrder || !riderLocation) return;
+
+    const deliveryCoords = {
+      latitude: trackingOrder.deliveryCoordinates?.latitude,
+      longitude: trackingOrder.deliveryCoordinates?.longitude,
+    };
+
+    if (deliveryCoords.latitude && deliveryCoords.longitude) {
+      const currentDistance = calculateDistance(
+        riderLocation.latitude,
+        riderLocation.longitude,
+        deliveryCoords.latitude,
+        deliveryCoords.longitude
+      );
+
+      const estimatedMinutes = calculateETA(currentDistance, 'cycling');
+      
+      setDistance(currentDistance);
+      setEta(estimatedMinutes);
+    }
+  };
+
+  // Update distance and ETA when rider location changes
+  useEffect(() => {
+    updateDistanceAndETA();
+  }, [riderLocation, trackingOrder]);
 
   // Calculate bearing between two coordinates
   const calculateBearing = (start, end) => {
@@ -391,6 +423,24 @@ const OrderTrackingScreen = ({ route, navigation }) => {
                 {orderStatus === 'delivered' && 'Delivered'}
               </Text>
             </View>
+            
+            {/* Distance and ETA Display */}
+            {riderLocation && orderStatus === 'out_for_delivery' && (
+              <View style={styles.etaContainer}>
+                <View style={styles.etaBadge}>
+                  <Icon name="location" size={14} color={colors.primary} />
+                  <Text style={styles.etaText}>
+                    {distance ? formatDistance(distance) : 'Calculating...'}
+                  </Text>
+                </View>
+                <View style={styles.etaBadge}>
+                  <Icon name="time" size={14} color={colors.success} />
+                  <Text style={styles.etaText}>
+                    {eta ? formatETA(eta) : 'Calculating...'}
+                  </Text>
+                </View>
+              </View>
+            )}
           </View>
         </View>
 
@@ -527,6 +577,22 @@ const OrderTrackingScreen = ({ route, navigation }) => {
             <Text style={styles.actionText}>Need Help?</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Review Button - Show when order is delivered */}
+        {orderStatus === 'delivered' && (
+          <View style={styles.reviewSection}>
+            <TouchableOpacity 
+              style={styles.reviewButton}
+              onPress={() => navigation.navigate('ReviewScreen', { order: trackingOrder })}
+            >
+              <Icon name="star" size={20} color={colors.white} />
+              <Text style={styles.reviewButtonText}>Rate Your Experience</Text>
+            </TouchableOpacity>
+            <Text style={styles.reviewSubtext}>
+              Help others by sharing your feedback about the food and delivery service
+            </Text>
+          </View>
+        )}
       </ScrollView>
     </View>
   );
@@ -608,8 +674,8 @@ const styles = StyleSheet.create({
     top: 16,
     left: 16,
     right: 16,
-    flexDirection: 'row',
-    justifyContent: 'center',
+    flexDirection: 'column',
+    alignItems: 'center',
   },
   statusBadge: {
     flexDirection: 'row',
@@ -629,6 +695,30 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: colors.white,
     marginLeft: 8,
+  },
+  etaContainer: {
+    flexDirection: 'row',
+    marginTop: 8,
+    gap: 8,
+  },
+  etaBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.white,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 3,
+  },
+  etaText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.text.primary,
+    marginLeft: 4,
   },
   restaurantMarker: {
     width: 40,
@@ -859,6 +949,39 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.primary,
     marginLeft: 8,
+  },
+  reviewSection: {
+    marginHorizontal: 20,
+    marginBottom: 30,
+    alignItems: 'center',
+  },
+  reviewButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.warning,
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+    borderRadius: 25,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+    marginBottom: 12,
+  },
+  reviewButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: colors.white,
+    marginLeft: 8,
+  },
+  reviewSubtext: {
+    fontSize: 12,
+    color: colors.text.secondary,
+    textAlign: 'center',
+    paddingHorizontal: 20,
+    lineHeight: 16,
   },
 });
 

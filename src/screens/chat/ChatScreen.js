@@ -57,7 +57,7 @@ const ChatScreen = ({ route, navigation }) => {
   const fetchMessages = async () => {
     try {
       const response = await api.get(`/chat/${orderId}`);
-      setMessages(response.data.messages);
+      setMessages(response.data.data.messages);
       setTimeout(scrollToBottom, 100);
     } catch (error) {
       console.error('Failed to fetch messages:', error);
@@ -80,7 +80,7 @@ const ChatScreen = ({ route, navigation }) => {
 
     try {
       await api.post(`/chat/${orderId}`, {
-        message: messageText,
+        content: messageText,
         type: 'text',
       });
     } catch (error) {

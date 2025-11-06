@@ -68,4 +68,15 @@ router.get(
   restaurantController.getRestaurantOrders,
 );
 
+// Reviews
+router.post(
+  '/:id/reviews',
+  protect,
+  restaurantController.addRestaurantReview,
+);
+router.get(
+  '/:id/reviews',
+  restaurantController.getRestaurantReviews,
+);
+
 export default router;

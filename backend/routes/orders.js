@@ -73,4 +73,12 @@ router.put(
   orderController.completeDelivery,
 );
 
+// Get rider's orders/deliveries
+router.get(
+  '/rider/:riderId',
+  protect,
+  authorize('rider'),
+  orderController.getRiderOrders,
+);
+
 export default router;

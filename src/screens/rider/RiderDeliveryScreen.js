@@ -14,6 +14,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import Icon from 'react-native-vector-icons/Ionicons';
 import MapComponent, { Marker, Polyline } from '../../components/MapComponent';
 import { RestaurantPin, RiderPin, DeliveryPin } from '../../components/CustomMapPins';
+import { calculateDistance, formatDistance, calculateETA, formatETA } from '../../utils/mapUtils';
 import colors from '../../styles/colors';
 import api from '../../services/api';
 import * as Location from 'expo-location';
@@ -28,6 +29,8 @@ const RiderDeliveryScreen = ({ route, navigation }) => {
   const [socket, setSocket] = useState(null);
   const [deliveryStatus, setDeliveryStatus] = useState('picked_up');
   const [estimatedTime, setEstimatedTime] = useState(null);
+  const [distance, setDistance] = useState(null);
+  const [eta, setEta] = useState(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const mapRef = useRef(null);
 
@@ -121,6 +124,35 @@ const RiderDeliveryScreen = ({ route, navigation }) => {
       ])
     ).start();
   };
+
+  // Calculate distance and ETA to delivery location
+  const updateDistanceAndETA = () => {
+    if (!order || !currentLocation) return;
+
+    const deliveryCoords = {
+      latitude: order.deliveryCoordinates?.latitude,
+      longitude: order.deliveryCoordinates?.longitude,
+    };
+
+    if (deliveryCoords.latitude && deliveryCoords.longitude) {
+      const currentDistance = calculateDistance(
+        currentLocation.latitude,
+        currentLocation.longitude,
+        deliveryCoords.latitude,
+        deliveryCoords.longitude
+      );
+
+      const estimatedMinutes = calculateETA(currentDistance, 'cycling');
+      
+      setDistance(currentDistance);
+      setEta(estimatedMinutes);
+    }
+  };
+
+  // Update distance and ETA when location changes
+  useEffect(() => {
+    updateDistanceAndETA();
+  }, [currentLocation, order]);
 
   const updateDeliveryStatus = async (status) => {
     try {
@@ -339,6 +371,27 @@ const RiderDeliveryScreen = ({ route, navigation }) => {
             <Text style={styles.infoText}>{order.userId?.phone}</Text>
           </View>
         </View>
+
+        {/* Distance and ETA Display */}
+        {currentLocation && (
+          <View style={styles.deliveryStats}>
+            <View style={styles.statItem}>
+              <Icon name="navigate" size={20} color={colors.primary} />
+              <Text style={styles.statLabel}>Distance</Text>
+              <Text style={styles.statValue}>
+                {distance ? formatDistance(distance) : 'Calculating...'}
+              </Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Icon name="time" size={20} color={colors.success} />
+              <Text style={styles.statLabel}>ETA</Text>
+              <Text style={styles.statValue}>
+                {eta ? formatETA(eta) : 'Calculating...'}
+              </Text>
+            </View>
+          </View>
+        )}
       </View>
 
       {/* Status Update Buttons */}
@@ -524,6 +577,33 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.text.primary,
     flex: 1,
+  },
+  deliveryStats: {
+    flexDirection: 'row',
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  statItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  statDivider: {
+    width: 1,
+    backgroundColor: colors.border,
+    marginHorizontal: 16,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: colors.text.secondary,
+    marginTop: 4,
+    marginBottom: 2,
+  },
+  statValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: colors.text.primary,
   },
   statusContainer: {
     backgroundColor: colors.white,

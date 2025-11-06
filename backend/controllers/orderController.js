@@ -98,6 +98,11 @@ export const createOrder = async (req, res) => {
     io.to(`restaurant_${restaurantId}`).emit('newOrder', { 
       restaurantId, 
       orderId: order._id,
+      totalAmount: order.totalAmount,
+      customerName: req.user.name,
+      deliveryAddress: order.deliveryAddress,
+      itemsCount: order.items.length,
+      playSound: true,
       orderDetails: {
         totalAmount: order.totalAmount,
         items: order.items,
@@ -702,7 +707,7 @@ export const updateOrderStatus = async (req, res) => {
 export const getAvailableOrders = async (req, res) => {
   try {
     const orders = await Order.find({
-      status: 'preparing',
+      status: { $in: ['preparing', 'looking_for_rider', 'accepted'] },
       riderId: null,
     })
       .populate('restaurantId', 'name address location')
@@ -740,11 +745,33 @@ export const acceptDelivery = async (req, res) => {
     await order.save();
 
     const io = req.app.get('io');
+    
+    // Notify customer about order update
     io.to(`order_${order._id}`).emit('orderUpdate', {
       orderId: order._id,
       status: 'out_for_delivery',
       rider: req.user,
     });
+
+    // Notify all riders that this order is no longer available
+    io.emit('orderTaken', {
+      orderId: order._id,
+      riderId: req.user.id,
+    });
+
+    // Send success notification to the rider who accepted
+    io.to(`rider_${req.user.id}`).emit('deliveryAccepted', {
+      orderId: order._id,
+      message: 'Delivery accepted successfully! 🎉',
+      order: {
+        _id: order._id,
+        restaurantName: order.restaurantId?.name,
+        deliveryAddress: order.deliveryAddress,
+        totalAmount: order.totalAmount,
+      },
+    });
+
+    console.log('✅ Delivery accepted by rider:', req.user.id, 'for order:', order._id);
 
     res.json({
       status: 'success',
@@ -839,6 +866,63 @@ export const rateOrder = async (req, res) => {
     res.status(500).json({
       status: 'error',
       message: 'Failed to submit rating',
+    });
+  }
+};
+
+// @desc    Get rider's orders/deliveries
+// @route   GET /api/orders/rider/:riderId
+// @access  Private (Rider)
+export const getRiderOrders = async (req, res) => {
+  try {
+    const { riderId } = req.params;
+    const { status, limit = 50, page = 1 } = req.query;
+    
+    // Verify rider can access this data
+    if (req.user.id !== riderId && req.user.role !== 'admin') {
+      return res.status(403).json({
+        status: 'error',
+        message: 'Not authorized to access this data',
+      });
+    }
+
+    let query = { riderId };
+    
+    // Filter by status if provided
+    if (status && status !== 'all') {
+      if (status === 'completed') {
+        query.status = 'delivered';
+      } else if (status === 'cancelled') {
+        query.status = 'cancelled';
+      } else {
+        query.status = status;
+      }
+    }
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const orders = await Order.find(query)
+      .populate('userId', 'name phone profileImage')
+      .populate('restaurantId', 'name address image')
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit))
+      .skip(skip);
+
+    const totalOrders = await Order.countDocuments(query);
+
+    res.json({
+      status: 'success',
+      results: orders.length,
+      totalOrders,
+      currentPage: parseInt(page),
+      totalPages: Math.ceil(totalOrders / parseInt(limit)),
+      orders,
+    });
+  } catch (error) {
+    console.error('Get rider orders error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to fetch rider orders',
     });
   }
 };

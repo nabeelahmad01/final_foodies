@@ -604,3 +604,117 @@ export const getRestaurantOrders = async (req, res) => {
     });
   }
 };
+
+// @desc    Add restaurant review
+// @route   POST /api/restaurants/:id/reviews
+// @access  Private
+export const addRestaurantReview = async (req, res) => {
+  try {
+    const { rating, comment, orderId } = req.body;
+
+    if (!rating || rating < 1 || rating > 5) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Rating must be between 1 and 5',
+      });
+    }
+
+    const restaurant = await Restaurant.findById(req.params.id);
+    if (!restaurant) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Restaurant not found',
+      });
+    }
+
+    // Check if user has already reviewed this restaurant for this order
+    if (orderId) {
+      const existingReview = restaurant.reviews.find(
+        review => review.userId.toString() === req.user.id && 
+                 review.orderId?.toString() === orderId
+      );
+      
+      if (existingReview) {
+        return res.status(400).json({
+          status: 'error',
+          message: 'You have already reviewed this restaurant for this order',
+        });
+      }
+    }
+
+    // Add review
+    const review = {
+      userId: req.user.id,
+      rating,
+      comment: comment || '',
+      orderId: orderId || null,
+      createdAt: new Date(),
+    };
+
+    restaurant.reviews.push(review);
+
+    // Update average rating
+    const totalRating = restaurant.reviews.reduce((sum, rev) => sum + rev.rating, 0);
+    restaurant.rating = totalRating / restaurant.reviews.length;
+
+    await restaurant.save();
+
+    // Populate user info for response
+    await restaurant.populate('reviews.userId', 'name profileImage');
+
+    res.status(201).json({
+      status: 'success',
+      message: 'Review added successfully',
+      review: restaurant.reviews[restaurant.reviews.length - 1],
+      newRating: restaurant.rating,
+    });
+  } catch (error) {
+    console.error('Add review error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to add review',
+    });
+  }
+};
+
+// @desc    Get restaurant reviews
+// @route   GET /api/restaurants/:id/reviews
+// @access  Public
+export const getRestaurantReviews = async (req, res) => {
+  try {
+    const { page = 1, limit = 10 } = req.query;
+    
+    const restaurant = await Restaurant.findById(req.params.id)
+      .populate('reviews.userId', 'name profileImage')
+      .select('reviews rating');
+
+    if (!restaurant) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Restaurant not found',
+      });
+    }
+
+    // Sort reviews by date (newest first) and paginate
+    const sortedReviews = restaurant.reviews
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .slice((page - 1) * limit, page * limit);
+
+    res.json({
+      status: 'success',
+      data: {
+        reviews: sortedReviews,
+        totalReviews: restaurant.reviews.length,
+        averageRating: restaurant.rating,
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(restaurant.reviews.length / limit),
+      },
+    });
+  } catch (error) {
+    console.error('Get reviews error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to fetch reviews',
+    });
+  }
+};

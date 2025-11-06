@@ -182,3 +182,206 @@ export const setAutoOnline = async (req, res) => {
     });
   }
 };
+
+// @desc    Get rider earnings
+// @route   GET /api/riders/:id/earnings
+// @access  Private (Rider)
+export const getRiderEarnings = async (req, res) => {
+  try {
+    const riderId = req.params.id;
+    
+    // Verify rider can access this data
+    if (req.user.id !== riderId && req.user.role !== 'admin') {
+      return res.status(403).json({
+        status: 'error',
+        message: 'Not authorized to access this data',
+      });
+    }
+
+    const now = new Date();
+    
+    // Today's range
+    const todayStart = new Date(now);
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date(todayStart);
+    todayEnd.setDate(todayEnd.getDate() + 1);
+    
+    // This week's range
+    const weekStart = new Date(now);
+    weekStart.setDate(now.getDate() - now.getDay());
+    weekStart.setHours(0, 0, 0, 0);
+    
+    // This month's range
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    // Calculate earnings (15% commission from total amount)
+    const [todayEarnings, weekEarnings, monthEarnings, totalEarnings] = await Promise.all([
+      Order.aggregate([
+        {
+          $match: {
+            riderId: req.user._id,
+            status: 'delivered',
+            updatedAt: { $gte: todayStart, $lt: todayEnd }
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: { $multiply: ['$totalAmount', 0.15] } }
+          }
+        }
+      ]),
+      
+      Order.aggregate([
+        {
+          $match: {
+            riderId: req.user._id,
+            status: 'delivered',
+            updatedAt: { $gte: weekStart }
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: { $multiply: ['$totalAmount', 0.15] } }
+          }
+        }
+      ]),
+      
+      Order.aggregate([
+        {
+          $match: {
+            riderId: req.user._id,
+            status: 'delivered',
+            updatedAt: { $gte: monthStart }
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: { $multiply: ['$totalAmount', 0.15] } }
+          }
+        }
+      ]),
+      
+      Order.aggregate([
+        {
+          $match: {
+            riderId: req.user._id,
+            status: 'delivered'
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: { $multiply: ['$totalAmount', 0.15] } }
+          }
+        }
+      ])
+    ]);
+
+    res.json({
+      status: 'success',
+      earnings: {
+        today: Math.round(todayEarnings[0]?.total || 0),
+        thisWeek: Math.round(weekEarnings[0]?.total || 0),
+        thisMonth: Math.round(monthEarnings[0]?.total || 0),
+        total: Math.round(totalEarnings[0]?.total || 0),
+      },
+    });
+  } catch (error) {
+    console.error('Get rider earnings error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to fetch earnings',
+    });
+  }
+};
+
+// @desc    Get rider stats
+// @route   GET /api/riders/:id/stats
+// @access  Private (Rider)
+export const getRiderStats = async (req, res) => {
+  try {
+    const riderId = req.params.id;
+    
+    // Verify rider can access this data
+    if (req.user.id !== riderId && req.user.role !== 'admin') {
+      return res.status(403).json({
+        status: 'error',
+        message: 'Not authorized to access this data',
+      });
+    }
+
+    const [deliveryStats, ratingStats, earningsStats] = await Promise.all([
+      // Total deliveries and completion rate
+      Order.aggregate([
+        {
+          $match: { riderId: req.user._id }
+        },
+        {
+          $group: {
+            _id: null,
+            totalDeliveries: { $sum: 1 },
+            completedDeliveries: {
+              $sum: { $cond: [{ $eq: ['$status', 'delivered'] }, 1, 0] }
+            }
+          }
+        }
+      ]),
+      
+      // Average rating
+      Order.aggregate([
+        {
+          $match: {
+            riderId: req.user._id,
+            'rating.delivery': { $exists: true }
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            averageRating: { $avg: '$rating.delivery' }
+          }
+        }
+      ]),
+      
+      // Total earnings
+      Order.aggregate([
+        {
+          $match: {
+            riderId: req.user._id,
+            status: 'delivered'
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            totalEarnings: { $sum: { $multiply: ['$totalAmount', 0.15] } }
+          }
+        }
+      ])
+    ]);
+
+    const deliveryData = deliveryStats[0] || { totalDeliveries: 0, completedDeliveries: 0 };
+    const completionRate = deliveryData.totalDeliveries > 0 
+      ? Math.round((deliveryData.completedDeliveries / deliveryData.totalDeliveries) * 100)
+      : 0;
+
+    res.json({
+      status: 'success',
+      stats: {
+        totalDeliveries: deliveryData.completedDeliveries,
+        rating: ratingStats[0]?.averageRating || 0,
+        totalEarnings: Math.round(earningsStats[0]?.totalEarnings || 0),
+        completionRate,
+      },
+    });
+  } catch (error) {
+    console.error('Get rider stats error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to fetch stats',
+    });
+  }
+};

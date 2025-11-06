@@ -124,6 +124,21 @@ const RiderDashboard = ({ navigation }) => {
         }
       });
 
+      // Listen for delivery acceptance confirmation
+      newSocket.on('deliveryAccepted', (data) => {
+        console.log('✅ Delivery accepted confirmation:', data);
+        Alert.alert(
+          'Delivery Accepted! 🎉',
+          data.message,
+          [
+            {
+              text: 'Start Delivery',
+              onPress: () => navigation.navigate('RiderDelivery', { orderId: data.orderId })
+            }
+          ]
+        );
+      });
+
       setSocket(newSocket);
 
       // Cleanup on unmount
@@ -475,6 +490,19 @@ const RiderDashboard = ({ navigation }) => {
                 <Icon name="person" size={24} color={colors.warning} />
               </View>
               <Text style={styles.actionText}>My Profile</Text>
+            </View>
+            <Icon name="chevron-forward" size={20} color={colors.gray} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionCard}
+            onPress={() => navigation.navigate('Conversations')}
+          >
+            <View style={styles.actionLeft}>
+              <View style={[styles.actionIcon, { backgroundColor: colors.secondary + '20' }]}>
+                <Icon name="chatbubbles" size={24} color={colors.secondary} />
+              </View>
+              <Text style={styles.actionText}>Messages</Text>
             </View>
             <Icon name="chevron-forward" size={20} color={colors.gray} />
           </TouchableOpacity>
