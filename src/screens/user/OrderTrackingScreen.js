@@ -14,6 +14,7 @@ import {
 import { useDispatch, useSelector } from 'react-redux';
 import Icon from 'react-native-vector-icons/Ionicons';
 import MapComponent, { Marker, Polyline } from '../../components/MapComponent';
+import MapErrorBoundary from '../../components/MapErrorBoundary';
 import { RestaurantPin, RiderPin, DeliveryPin } from '../../components/CustomMapPins';
 import { calculateDistance, formatDistance, calculateETA, formatETA, calculateBearing } from '../../utils/mapUtils';
 import { trackOrder, updateOrderStatus } from '../../redux/slices/orderSlice';
@@ -343,12 +344,16 @@ const OrderTrackingScreen = ({ route, navigation }) => {
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Enhanced Map View */}
         <View style={styles.mapContainer}>
-          <MapComponent
-            ref={mapRef}
-            style={styles.map}
-            customMapStyle={customMapStyle}
-            initialRegion={{
-              latitude: trackingOrder.deliveryCoordinates?.latitude || 31.4952,
+          <MapErrorBoundary>
+            <MapComponent
+              ref={mapRef}
+              style={styles.map}
+              customMapStyle={customMapStyle}
+              initialRegion={{
+                latitude: trackingOrder.deliveryCoordinates?.latitude || 31.4952,
+                longitude: trackingOrder.deliveryCoordinates?.longitude || 74.3157,
+                latitudeDelta: 0.02,
+                longitudeDelta: 0.02,
               longitude: trackingOrder.deliveryCoordinates?.longitude || 74.3157,
               latitudeDelta: 0.02,
               longitudeDelta: 0.02,
@@ -447,6 +452,7 @@ const OrderTrackingScreen = ({ route, navigation }) => {
               </>
             )}
           </MapComponent>
+          </MapErrorBoundary>
           
           {/* Map Overlay - Order Status */}
           <View style={styles.mapOverlay}>
