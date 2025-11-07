@@ -14,6 +14,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import Icon from 'react-native-vector-icons/Ionicons';
 import MapComponent, { Marker, Polyline } from '../../components/MapComponent';
 import { RestaurantPin, RiderPin, DeliveryPin } from '../../components/CustomMapPins';
+import RiderDeliveryMap from '../../components/RiderDeliveryMap';
 import { calculateDistance, formatDistance, calculateETA, formatETA } from '../../utils/mapUtils';
 import colors from '../../styles/colors';
 import api from '../../services/api';
@@ -256,97 +257,22 @@ const RiderDeliveryScreen = ({ route, navigation }) => {
         </TouchableOpacity>
       </View>
 
-      {/* Map */}
-      <View style={styles.mapContainer}>
-        <MapComponent
-          ref={mapRef}
-          style={styles.map}
-          initialRegion={{
-            latitude: currentLocation?.latitude || order.deliveryCoordinates?.latitude || 31.4952,
-            longitude: currentLocation?.longitude || order.deliveryCoordinates?.longitude || 74.3157,
-            latitudeDelta: 0.01,
-            longitudeDelta: 0.01,
-          }}
-          showsUserLocation={true}
-          showsMyLocationButton={false}
-        >
-          {/* Restaurant Marker */}
-          <Marker
-            coordinate={{
-              latitude: order.restaurantId?.location?.coordinates?.[1] || 31.5204,
-              longitude: order.restaurantId?.location?.coordinates?.[0] || 74.3587,
-            }}
-            title={order.restaurantId?.name}
-            description="Pickup location"
-          >
-            <RestaurantPin 
-              restaurant={order.restaurantId} 
-              isSelected={deliveryStatus === 'picked_up'}
-            />
-          </Marker>
-
-          {/* Delivery Marker */}
-          <Marker
-            coordinate={{
-              latitude: order.deliveryCoordinates?.latitude || 31.4697,
-              longitude: order.deliveryCoordinates?.longitude || 74.2728,
-            }}
-            title="Delivery Location"
-            description={order.deliveryAddress}
-          >
-            <DeliveryPin address={order.deliveryAddress} />
-          </Marker>
-
-          {/* Current Location Marker */}
-          {currentLocation && (
-            <Marker
-              coordinate={currentLocation}
-              title="Your Location"
-              description="Current rider position"
-            >
-              <RiderPin 
-                rider={user}
-                isMoving={deliveryStatus === 'on_the_way'}
-              />
-            </Marker>
-          )}
-
-          {/* Enhanced Route */}
-          {currentLocation && (
-            <>
-              {/* Route Shadow */}
-              <Polyline
-                coordinates={[
-                  currentLocation,
-                  {
-                    latitude: order.deliveryCoordinates?.latitude || 31.4697,
-                    longitude: order.deliveryCoordinates?.longitude || 74.2728,
-                  }
-                ]}
-                strokeColor="rgba(0, 0, 0, 0.3)"
-                strokeWidth={7}
-                lineCap="round"
-                lineJoin="round"
-              />
-              {/* Main Route */}
-              <Polyline
-                coordinates={[
-                  currentLocation,
-                  {
-                    latitude: order.deliveryCoordinates?.latitude || 31.4697,
-                    longitude: order.deliveryCoordinates?.longitude || 74.2728,
-                  }
-                ]}
-                strokeColor={deliveryStatus === 'on_the_way' ? colors.warning : colors.primary}
-                strokeWidth={4}
-                strokePattern={deliveryStatus === 'on_the_way' ? [8, 4] : undefined}
-                lineCap="round"
-                lineJoin="round"
-              />
-            </>
-          )}
-        </MapComponent>
-      </View>
+      {/* Enhanced Delivery Map */}
+      <RiderDeliveryMap
+        order={order}
+        riderLocation={currentLocation}
+        onLocationUpdate={(location) => {
+          setCurrentLocation(location);
+          // Emit location update to customers
+          if (socket) {
+            socket.emit('riderLocationUpdate', {
+              orderId: order._id,
+              location,
+              estimatedTime: eta,
+            });
+          }
+        }}
+      />
 
       {/* Order Details */}
       <View style={styles.orderCard}>

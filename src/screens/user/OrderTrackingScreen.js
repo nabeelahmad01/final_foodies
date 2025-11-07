@@ -17,6 +17,8 @@ import MapComponent, { Marker, Polyline } from '../../components/MapComponent';
 import SimpleMapView from '../../components/SimpleMapView';
 import MapErrorBoundary from '../../components/MapErrorBoundary';
 import { RestaurantPin, RiderPin, DeliveryPin } from '../../components/CustomMapPins';
+import RatingReviewModal from '../../components/RatingReviewModal';
+import LiveTrackingMap from '../../components/LiveTrackingMap';
 import { calculateDistance, formatDistance, calculateETA, formatETA, calculateBearing } from '../../utils/mapUtils';
 import { trackOrder, updateOrderStatus } from '../../redux/slices/orderSlice';
 import { ORDER_STATUS } from '../../utils/constants';
@@ -37,10 +39,47 @@ const OrderTrackingScreen = ({ route, navigation }) => {
   const [orderStatus, setOrderStatus] = useState('pending');
   const [distance, setDistance] = useState(null);
   const [eta, setEta] = useState(null);
+  const [showRatingModal, setShowRatingModal] = useState(false);
+  const [hasShownRatingModal, setHasShownRatingModal] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState(new Date());
   const mapRef = useRef(null);
   const riderMarkerRef = useRef(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const bikeRotation = useRef(new Animated.Value(0)).current;
+
+  // Sync orderStatus with trackingOrder when it loads
+  useEffect(() => {
+    if (trackingOrder && trackingOrder.status) {
+      console.log('Setting initial order status:', trackingOrder.status);
+      setOrderStatus(trackingOrder.status);
+    }
+  }, [trackingOrder]);
+
+  // Manual refresh function
+  const refreshOrderStatus = async () => {
+    setIsRefreshing(true);
+    try {
+      console.log('🔄 Manually refreshing order status...');
+      await dispatch(trackOrder(orderId));
+      setLastUpdated(new Date());
+      console.log('✅ Order status refreshed');
+    } catch (error) {
+      console.error('❌ Error refreshing order:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  // Polling fallback - check status every 30 seconds
+  useEffect(() => {
+    const pollingInterval = setInterval(() => {
+      console.log('🔄 Polling for order updates...');
+      dispatch(trackOrder(orderId));
+    }, 30000); // 30 seconds
+
+    return () => clearInterval(pollingInterval);
+  }, [dispatch, orderId]);
 
   useEffect(() => {
     dispatch(trackOrder(orderId));
@@ -48,22 +87,56 @@ const OrderTrackingScreen = ({ route, navigation }) => {
     startPulseAnimation();
 
     // Connect to Socket.IO for real-time updates
-    const newSocket = io(API_URL.replace('/api', ''));
+    console.log('Connecting to WebSocket:', API_URL.replace('/api', ''));
+    const newSocket = io(API_URL.replace('/api', ''), {
+      transports: ['websocket', 'polling'],
+      timeout: 20000,
+      forceNew: true,
+    });
     setSocket(newSocket);
 
-    newSocket.emit('joinOrder', orderId);
+    // Connection event handlers
+    newSocket.on('connect', () => {
+      console.log('✅ WebSocket connected successfully');
+      newSocket.emit('joinOrder', orderId);
+      console.log('📡 Joined order room:', orderId);
+    });
+
+    newSocket.on('disconnect', (reason) => {
+      console.log('❌ WebSocket disconnected:', reason);
+    });
+
+    newSocket.on('connect_error', (error) => {
+      console.error('🚨 WebSocket connection error:', error);
+    });
 
     // Listen for order status updates
     newSocket.on('orderUpdate', (data) => {
-      console.log('Order update received:', data);
+      console.log('📨 Order update received:', data);
       dispatch(updateOrderStatus({ orderId: data.orderId, status: data.status }));
       setOrderStatus(data.status);
+      setLastUpdated(new Date());
       playNotificationSound();
       
       if (data.status === 'accepted') {
         Alert.alert('Order Accepted! 🎉', 'Your order has been accepted by the restaurant.');
       } else if (data.status === 'out_for_delivery') {
         Alert.alert('On the Way! 🚴‍♂️', 'Your order is out for delivery.');
+      } else if (data.status === 'delivered' && !hasShownRatingModal) {
+        Alert.alert('Order Delivered! 🎉', 'Your order has been delivered successfully.', [
+          {
+            text: 'Rate Experience',
+            onPress: () => {
+              setShowRatingModal(true);
+              setHasShownRatingModal(true);
+            }
+          },
+          {
+            text: 'Later',
+            style: 'cancel',
+            onPress: () => setHasShownRatingModal(true)
+          }
+        ]);
       }
     });
 
@@ -279,19 +352,34 @@ const OrderTrackingScreen = ({ route, navigation }) => {
       },
       {
         key: ORDER_STATUS.ACCEPTED,
-        label: 'Accepted',
-        icon: 'checkmark-circle',
+        label: 'Restaurant Confirmed',
+        icon: 'restaurant',
       },
-      { key: ORDER_STATUS.PREPARING, label: 'Preparing', icon: 'restaurant' },
+      { 
+        key: ORDER_STATUS.PREPARING, 
+        label: 'Preparing Your Food', 
+        icon: 'time' 
+      },
+      {
+        key: 'ready_for_pickup',
+        label: 'Ready for Pickup',
+        icon: 'checkmark-done',
+      },
       {
         key: ORDER_STATUS.OUT_FOR_DELIVERY,
         label: 'Out for Delivery',
         icon: 'bicycle',
       },
-      { key: ORDER_STATUS.DELIVERED, label: 'Delivered', icon: 'gift' },
+      { 
+        key: ORDER_STATUS.DELIVERED, 
+        label: 'Delivered', 
+        icon: 'gift' 
+      },
     ];
 
-    const currentIndex = steps.findIndex(s => s.key === trackingOrder.status);
+    // Use real-time orderStatus instead of trackingOrder.status
+    const currentStatus = orderStatus || trackingOrder?.status || 'pending';
+    const currentIndex = steps.findIndex(s => s.key === currentStatus);
 
     return steps.map((step, index) => ({
       ...step,
@@ -337,84 +425,49 @@ const OrderTrackingScreen = ({ route, navigation }) => {
             {orderStatus === 'delivered' && 'Order delivered successfully!'}
           </Text>
         </View>
-        <View style={styles.etaContainer}>
-          <Text style={styles.etaText}>{formatETA(estimatedTime)}</Text>
-        </View>
+        <TouchableOpacity 
+          style={styles.refreshButton}
+          onPress={refreshOrderStatus}
+          disabled={isRefreshing}
+        >
+          <Icon 
+            name={isRefreshing ? "hourglass" : "refresh"} 
+            size={20} 
+            color={colors.white} 
+          />
+        </TouchableOpacity>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Enhanced Map View */}
-        <View style={styles.mapContainer}>
-          <MapErrorBoundary>
-            <SimpleMapView
-              latitude={trackingOrder.deliveryCoordinates?.latitude || 31.4952}
-              longitude={trackingOrder.deliveryCoordinates?.longitude || 74.3157}
-              style={styles.map}
-              showsUserLocation={true}
-              markers={[
-                // Restaurant marker
-                {
-                  latitude: trackingOrder.restaurantId?.location?.coordinates?.[1] || restaurantLocation.latitude,
-                  longitude: trackingOrder.restaurantId?.location?.coordinates?.[0] || restaurantLocation.longitude,
-                  title: `🍽️ ${trackingOrder.restaurantId?.name || "Restaurant"}`,
-                },
-                // Delivery location marker
-                {
-                  latitude: trackingOrder.deliveryCoordinates?.latitude || deliveryLocation.latitude,
-                  longitude: trackingOrder.deliveryCoordinates?.longitude || deliveryLocation.longitude,
-                  title: `🏠 Delivery Location`,
-                },
-                // Rider marker (if available)
-                ...(riderLocation ? [{
-                  latitude: riderLocation.latitude,
-                  longitude: riderLocation.longitude,
-                  title: `🚴‍♂️ ${trackingOrder.riderId?.name || "Delivery Rider"}`,
-                }] : [])
-              ]}
-            />
-          </MapErrorBoundary>
-          
-          {/* Map Overlay - Order Status */}
-          <View style={styles.mapOverlay}>
-            <View style={styles.statusBadge}>
-              <Icon 
-                name={
-                  orderStatus === 'pending' ? 'time' :
-                  orderStatus === 'accepted' ? 'checkmark-circle' :
-                  orderStatus === 'preparing' ? 'restaurant' :
-                  orderStatus === 'out_for_delivery' ? 'bicycle' : 'checkmark-done-circle'
-                } 
-                size={16} 
-                color={colors.white} 
-              />
-              <Text style={styles.statusText}>
-                {orderStatus === 'pending' && 'Order Placed'}
-                {orderStatus === 'accepted' && 'Accepted'}
-                {orderStatus === 'preparing' && 'Preparing'}
-                {orderStatus === 'out_for_delivery' && 'On the Way'}
-                {orderStatus === 'delivered' && 'Delivered'}
-              </Text>
-            </View>
-            
-            {/* Distance and ETA Display */}
-            {riderLocation && orderStatus === 'out_for_delivery' && (
-              <View style={styles.etaContainer}>
-                <View style={styles.etaBadge}>
-                  <Icon name="location" size={14} color={colors.primary} />
-                  <Text style={styles.etaText}>
-                    {distance ? formatDistance(distance) : 'Calculating...'}
-                  </Text>
-                </View>
-                <View style={styles.etaBadge}>
-                  <Icon name="time" size={14} color={colors.success} />
-                  <Text style={styles.etaText}>
-                    {eta ? formatETA(eta) : 'Calculating...'}
-                  </Text>
-                </View>
-              </View>
-            )}
-          </View>
+        {/* Connection Status */}
+        <View style={styles.statusIndicator}>
+          <View style={[styles.connectionDot, { 
+            backgroundColor: socket?.connected ? colors.success : colors.error 
+          }]} />
+          <Text style={styles.statusText}>
+            {socket?.connected ? '🟢 Live updates active' : '🔴 Reconnecting...'}
+          </Text>
+          <Text style={styles.lastUpdatedText}>
+            Last updated: {lastUpdated.toLocaleTimeString()}
+          </Text>
         </View>
+
+        {/* Live Tracking Map */}
+        <LiveTrackingMap
+          restaurantLocation={{
+            latitude: trackingOrder.restaurantId?.location?.coordinates?.[1] || restaurantLocation.latitude,
+            longitude: trackingOrder.restaurantId?.location?.coordinates?.[0] || restaurantLocation.longitude,
+          }}
+          deliveryLocation={{
+            latitude: trackingOrder.deliveryCoordinates?.latitude || deliveryLocation.latitude,
+            longitude: trackingOrder.deliveryCoordinates?.longitude || deliveryLocation.longitude,
+          }}
+          riderLocation={riderLocation}
+          orderStatus={orderStatus}
+          restaurantName={trackingOrder.restaurantId?.name}
+          deliveryAddress={trackingOrder.deliveryAddress}
+          onMapReady={() => console.log('Map ready')}
+        />
 
         {/* Order Status Timeline */}
         <View style={styles.timelineContainer}>
@@ -567,7 +620,7 @@ const OrderTrackingScreen = ({ route, navigation }) => {
           <View style={styles.reviewSection}>
             <TouchableOpacity 
               style={styles.reviewButton}
-              onPress={() => navigation.navigate('ReviewScreen', { order: trackingOrder })}
+              onPress={() => setShowRatingModal(true)}
             >
               <Icon name="star" size={20} color={colors.white} />
               <Text style={styles.reviewButtonText}>Rate Your Experience</Text>
@@ -578,6 +631,17 @@ const OrderTrackingScreen = ({ route, navigation }) => {
           </View>
         )}
       </ScrollView>
+
+      {/* Rating & Review Modal */}
+      <RatingReviewModal
+        visible={showRatingModal}
+        onClose={() => setShowRatingModal(false)}
+        order={trackingOrder}
+        onSubmitSuccess={() => {
+          setShowRatingModal(false);
+          // Optionally navigate back or show success message
+        }}
+      />
     </View>
   );
 };
@@ -617,6 +681,45 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: 'rgba(255, 255, 255, 0.8)',
     marginTop: 2,
+  },
+  refreshButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  statusIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.white,
+    marginHorizontal: 16,
+    marginTop: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  connectionDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 8,
+  },
+  statusText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  lastUpdatedText: {
+    fontSize: 12,
+    color: colors.textLight,
   },
   etaContainer: {
     backgroundColor: 'rgba(255, 255, 255, 0.2)',

@@ -21,6 +21,8 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import api from '../../services/api';
 import colors from '../../styles/colors';
 import ConfirmModal from '../../components/ConfirmModal';
+import { registerForPushNotifications, sendLocalNotification } from '../../services/pushNotifications';
+import { testRiderNotificationSystem } from '../../utils/riderNotifications';
 
 const RiderDashboard = ({ navigation }) => {
   const dispatch = useDispatch();
@@ -38,6 +40,14 @@ const RiderDashboard = ({ navigation }) => {
   const [confirmAccept, setConfirmAccept] = useState({ visible: false, orderId: null });
   const [socket, setSocket] = useState(null);
   const [newOrderAlert, setNewOrderAlert] = useState(null);
+
+  // Register for push notifications when component mounts
+  useEffect(() => {
+    if (user?._id && user?.role === 'rider') {
+      console.log('📱 Registering rider for push notifications...');
+      registerForPushNotifications();
+    }
+  }, [user]);
 
   useEffect(() => {
     fetchDashboardData();
@@ -93,8 +103,11 @@ const RiderDashboard = ({ navigation }) => {
 
       newSocket.on('connect', () => {
         console.log('✅ Socket connected for rider:', user._id);
-        // Join rider-specific room
+        // Join multiple rooms for comprehensive coverage
         newSocket.emit('join', `rider_${user._id}`);
+        newSocket.emit('joinRiderRoom', user._id);
+        newSocket.emit('setRiderOnline', { riderId: user._id, isOnline: true });
+        console.log('📡 Joined rider rooms and set online status');
       });
 
       newSocket.on('disconnect', () => {
@@ -108,7 +121,32 @@ const RiderDashboard = ({ navigation }) => {
         // Show order alert
         setNewOrderAlert(orderData);
         
-        // Play notification sound (you can add sound here)
+        // Send local notification
+        sendLocalNotification(
+          '🍕 New Order Available!',
+          `Order from ${orderData.restaurantName} - Rs. ${orderData.totalAmount}`,
+          { type: 'new_order', orderId: orderData._id }
+        );
+        
+        // Show immediate alert
+        Alert.alert(
+          '🔔 New Order Available!',
+          `Restaurant: ${orderData.restaurantName}\nAmount: Rs. ${orderData.totalAmount}\nDistance: ${orderData.distance || 'Calculating...'}`,
+          [
+            {
+              text: 'View Details',
+              onPress: () => {
+                // Navigate to order details or show in modal
+                setNewOrderAlert(orderData);
+              }
+            },
+            {
+              text: 'Dismiss',
+              style: 'cancel'
+            }
+          ]
+        );
+        
         // Also refresh available orders
         fetchAvailableOrders();
       });
@@ -216,6 +254,32 @@ const RiderDashboard = ({ navigation }) => {
       await fetchAvailableOrders();
     }
     setRefreshing(false);
+  };
+
+  // Test notification function (for debugging)
+  const testNotification = async () => {
+    console.log('🧪 Testing comprehensive notification system...');
+    
+    if (!user?._id) {
+      Alert.alert('Error', 'User ID not found');
+      return;
+    }
+    
+    try {
+      // Test comprehensive notification system
+      await testRiderNotificationSystem(user._id);
+      
+      // Show success alert
+      Alert.alert(
+        '🧪 Test Complete',
+        'Notification test sent! Check console for details.',
+        [{ text: 'OK' }]
+      );
+      
+    } catch (error) {
+      console.error('❌ Test notification failed:', error);
+      Alert.alert('Test Failed', error.message);
+    }
   };
 
   const toggleOnlineStatus = () => {
@@ -393,6 +457,17 @@ const RiderDashboard = ({ navigation }) => {
             <Text style={styles.statLabel}>Total Earnings</Text>
           </View>
         </View>
+
+        {/* Test Notification Button (Development Only) */}
+        {__DEV__ && (
+          <TouchableOpacity 
+            style={styles.testButton}
+            onPress={testNotification}
+          >
+            <Icon name="notifications" size={20} color={colors.white} />
+            <Text style={styles.testButtonText}>Test Notifications</Text>
+          </TouchableOpacity>
+        )}
 
         {/* Available Orders */}
         {isOnline && availableOrders.length > 0 && (
@@ -787,6 +862,28 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: colors.text.primary,
+  },
+  testButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.warning,
+    marginHorizontal: 20,
+    marginTop: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    elevation: 2,
+    shadowColor: colors.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  testButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.white,
+    marginLeft: 8,
   },
 });
 
