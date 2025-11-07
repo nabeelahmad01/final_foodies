@@ -3,15 +3,20 @@
 const __DEV__ = process.env.NODE_ENV === 'development';
 
 // Development API URL - use your local IP
-const DEV_API_URL = 'http://192.168.0.32:5000/api';
+const DEV_API_URL = 'http://192.168.0.88:5000/api';
 
 // Production API URL - replace with your deployed backend URL
 // After Railway deployment, replace with your actual URL
 const PROD_API_URL = 'https://finalfoodies.up.railway.app/api';
 
+// Fallback URLs in case primary fails
+const FALLBACK_DEV_URL = 'http://localhost:5000/api';
+const FALLBACK_PROD_URL = 'https://finalfoodies.up.railway.app/api';
+
 // Use development URL for now, change to PROD_API_URL when you deploy backend
 // After deployment, replace 'your-backend-domain.com' with your actual Railway URL
 export const API_URL = __DEV__ ? DEV_API_URL : PROD_API_URL;
+export const FALLBACK_API_URL = __DEV__ ? FALLBACK_DEV_URL : FALLBACK_PROD_URL;
 
 export const ORDER_STATUS = {
   PENDING: 'pending',

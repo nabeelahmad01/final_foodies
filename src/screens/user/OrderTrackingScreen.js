@@ -14,6 +14,7 @@ import {
 import { useDispatch, useSelector } from 'react-redux';
 import Icon from 'react-native-vector-icons/Ionicons';
 import MapComponent, { Marker, Polyline } from '../../components/MapComponent';
+import SimpleMapView from '../../components/SimpleMapView';
 import MapErrorBoundary from '../../components/MapErrorBoundary';
 import { RestaurantPin, RiderPin, DeliveryPin } from '../../components/CustomMapPins';
 import { calculateDistance, formatDistance, calculateETA, formatETA, calculateBearing } from '../../utils/mapUtils';
@@ -345,113 +346,32 @@ const OrderTrackingScreen = ({ route, navigation }) => {
         {/* Enhanced Map View */}
         <View style={styles.mapContainer}>
           <MapErrorBoundary>
-            <MapComponent
-              ref={mapRef}
+            <SimpleMapView
+              latitude={trackingOrder.deliveryCoordinates?.latitude || 31.4952}
+              longitude={trackingOrder.deliveryCoordinates?.longitude || 74.3157}
               style={styles.map}
-              customMapStyle={customMapStyle}
-              initialRegion={{
-                latitude: trackingOrder.deliveryCoordinates?.latitude || 31.4952,
-                longitude: trackingOrder.deliveryCoordinates?.longitude || 74.3157,
-                latitudeDelta: 0.02,
-                longitudeDelta: 0.02,
-              longitude: trackingOrder.deliveryCoordinates?.longitude || 74.3157,
-              latitudeDelta: 0.02,
-              longitudeDelta: 0.02,
-            }}
-            showsUserLocation={true}
-            showsMyLocationButton={false}
-            showsCompass={false}
-            toolbarEnabled={false}
-          >
-            {/* Restaurant Marker */}
-            <Marker
-              coordinate={{
-                latitude: trackingOrder.restaurantId?.location?.coordinates?.[1] || restaurantLocation.latitude,
-                longitude: trackingOrder.restaurantId?.location?.coordinates?.[0] || restaurantLocation.longitude,
-              }}
-              title={trackingOrder.restaurantId?.name || "Restaurant"}
-              description="Your order is being prepared here"
-            >
-              <RestaurantPin 
-                restaurant={trackingOrder.restaurantId} 
-                isSelected={orderStatus === 'preparing' || orderStatus === 'accepted'}
-              />
-            </Marker>
-
-            {/* Delivery Location Marker */}
-            <Marker
-              coordinate={{
-                latitude: trackingOrder.deliveryCoordinates?.latitude || deliveryLocation.latitude,
-                longitude: trackingOrder.deliveryCoordinates?.longitude || deliveryLocation.longitude,
-              }}
-              title="Delivery Location"
-              description="Your order will be delivered here"
-            >
-              <DeliveryPin address={trackingOrder.deliveryAddress} />
-            </Marker>
-
-            {/* Animated Rider Marker */}
-            {riderLocation && (
-              <Marker
-                ref={riderMarkerRef}
-                coordinate={riderLocation}
-                title={trackingOrder.riderId?.name || "Delivery Rider"}
-                description="Your delivery rider"
-                anchor={{ x: 0.5, y: 0.5 }}
-              >
-                <RiderPin 
-                  rider={trackingOrder.riderId}
-                  isMoving={orderStatus === 'out_for_delivery'}
-                  rotation={bikeRotation._value}
-                />
-              </Marker>
-            )}
-
-            {/* Enhanced Route Polyline */}
-            {riderLocation && (
-              <>
-                {/* Route Shadow */}
-                <Polyline
-                  coordinates={[
-                    orderStatus === 'out_for_delivery' 
-                      ? riderLocation 
-                      : {
-                          latitude: trackingOrder.restaurantId?.location?.coordinates?.[1] || restaurantLocation.latitude,
-                          longitude: trackingOrder.restaurantId?.location?.coordinates?.[0] || restaurantLocation.longitude,
-                        },
-                    {
-                      latitude: trackingOrder.deliveryCoordinates?.latitude || deliveryLocation.latitude,
-                      longitude: trackingOrder.deliveryCoordinates?.longitude || deliveryLocation.longitude,
-                    }
-                  ]}
-                  strokeColor="rgba(0, 0, 0, 0.2)"
-                  strokeWidth={8}
-                  lineCap="round"
-                  lineJoin="round"
-                />
-                {/* Main Route */}
-                <Polyline
-                  coordinates={[
-                    orderStatus === 'out_for_delivery' 
-                      ? riderLocation 
-                      : {
-                          latitude: trackingOrder.restaurantId?.location?.coordinates?.[1] || restaurantLocation.latitude,
-                          longitude: trackingOrder.restaurantId?.location?.coordinates?.[0] || restaurantLocation.longitude,
-                        },
-                    {
-                      latitude: trackingOrder.deliveryCoordinates?.latitude || deliveryLocation.latitude,
-                      longitude: trackingOrder.deliveryCoordinates?.longitude || deliveryLocation.longitude,
-                    }
-                  ]}
-                  strokeColor={orderStatus === 'out_for_delivery' ? colors.warning : colors.primary}
-                  strokeWidth={5}
-                  strokePattern={orderStatus === 'out_for_delivery' ? [10, 5] : undefined}
-                  lineCap="round"
-                  lineJoin="round"
-                />
-              </>
-            )}
-          </MapComponent>
+              showsUserLocation={true}
+              markers={[
+                // Restaurant marker
+                {
+                  latitude: trackingOrder.restaurantId?.location?.coordinates?.[1] || restaurantLocation.latitude,
+                  longitude: trackingOrder.restaurantId?.location?.coordinates?.[0] || restaurantLocation.longitude,
+                  title: `🍽️ ${trackingOrder.restaurantId?.name || "Restaurant"}`,
+                },
+                // Delivery location marker
+                {
+                  latitude: trackingOrder.deliveryCoordinates?.latitude || deliveryLocation.latitude,
+                  longitude: trackingOrder.deliveryCoordinates?.longitude || deliveryLocation.longitude,
+                  title: `🏠 Delivery Location`,
+                },
+                // Rider marker (if available)
+                ...(riderLocation ? [{
+                  latitude: riderLocation.latitude,
+                  longitude: riderLocation.longitude,
+                  title: `🚴‍♂️ ${trackingOrder.riderId?.name || "Delivery Rider"}`,
+                }] : [])
+              ]}
+            />
           </MapErrorBoundary>
           
           {/* Map Overlay - Order Status */}

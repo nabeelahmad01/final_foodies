@@ -5,13 +5,28 @@ import colors from '../styles/colors';
 
 // Try to import maps with error handling
 let MapView, Marker, Polyline;
+let isMapboxGL = false;
+
 try {
+  // First try react-native-maps (Google Maps)
   const maps = require('react-native-maps');
   MapView = maps.default;
   Marker = maps.Marker;
   Polyline = maps.Polyline;
+  console.log('✅ Google Maps loaded successfully');
 } catch (error) {
-  console.warn('Maps not available:', error);
+  console.warn('Google Maps not available, trying Mapbox:', error);
+  try {
+    // Fallback to Mapbox GL
+    const mapboxGL = require('@react-native-mapbox-gl/maps');
+    MapView = mapboxGL.MapView;
+    Marker = mapboxGL.PointAnnotation;
+    Polyline = mapboxGL.LineLayer;
+    isMapboxGL = true;
+    console.log('✅ Mapbox GL loaded successfully');
+  } catch (mapboxError) {
+    console.warn('No maps available:', mapboxError);
+  }
 }
 
 // Custom map style to match app theme

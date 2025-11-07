@@ -1,10 +1,8 @@
 // src/redux/slices/authSlice.js
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import api from '../../services/api';
-
-// Always use real API - no more mock data
-const apiClient = api;
+import { apiClient } from '../../services/api';
+import { checkNetworkConnectivity, handleNetworkError } from '../../utils/networkUtils';
 
 // Async thunks
 export const login = createAsyncThunk(
@@ -69,15 +67,35 @@ export const loadUser = createAsyncThunk(
         return null;
       }
 
+      // Check network connectivity first
+      console.log('🔍 Checking network connectivity...');
+      const networkStatus = await checkNetworkConnectivity();
+      if (!networkStatus.isConnected) {
+        console.warn('❌ No network connection detected');
+        return rejectWithValue('No internet connection. Please check your network and try again.');
+      }
+
       // Always use real API
       console.log('Fetching user data from real API');
+      console.log('API URL being used:', apiClient.defaults.baseURL);
+      
       const response = await apiClient.get('/auth/me');
+      console.log('✅ User data loaded successfully');
       return response.data.user;
     } catch (error) {
-      console.error('Error in loadUser:', error);
-      return rejectWithValue(
-        error.response?.data?.message || 'Failed to load user',
-      );
+      console.error('❌ Error in loadUser:', {
+        message: error.message,
+        code: error.code,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        baseURL: apiClient.defaults.baseURL,
+        isNetworkError: error.message === 'Network Error',
+        isTimeout: error.code === 'ECONNABORTED'
+      });
+      
+      // Use enhanced error handling
+      const errorInfo = handleNetworkError(error, 'loadUser');
+      return rejectWithValue(errorInfo.userMessage);
     }
   },
 );

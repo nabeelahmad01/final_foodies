@@ -65,7 +65,11 @@ const AppNavigator = () => {
         const token = await AsyncStorage.getItem('userToken');
         if (token && !user) {
           console.log('Loading user data on app start...');
-          dispatch(loadUser());
+          
+          // Add a small delay to ensure network is ready
+          setTimeout(() => {
+            dispatch(loadUser());
+          }, 1000);
         }
       } catch (error) {
         console.error('Error loading user on app start:', error);

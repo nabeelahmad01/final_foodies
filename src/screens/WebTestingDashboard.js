@@ -15,6 +15,7 @@ import colors from '../styles/colors';
 import api from '../services/api';
 import { logout } from '../redux/slices/authSlice';
 import WebKYCUpload from '../components/WebKYCUpload';
+import NetworkDebugger from '../components/NetworkDebugger';
 
 const WebTestingDashboard = ({ navigation }) => {
   const { user } = useSelector(state => state.auth);
@@ -129,6 +130,12 @@ const WebTestingDashboard = ({ navigation }) => {
             • Mobile: Complete app with maps{'\n'}
             • Both share same backend & database
           </Text>
+        </View>
+
+        {/* Network Debugger */}
+        <View style={styles.debuggerCard}>
+          <Text style={styles.debuggerTitle}>🔧 Network Debugger</Text>
+          <NetworkDebugger />
         </View>
 
         {/* Web KYC Upload Test */}
@@ -271,6 +278,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     lineHeight: 20,
+  },
+  debuggerCard: {
+    backgroundColor: '#fff3e0',
+    padding: 15,
+    borderRadius: 8,
+    marginBottom: 15,
+  },
+  debuggerTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    color: '#333',
   },
 });
 
